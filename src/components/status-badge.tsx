@@ -22,7 +22,10 @@ export function Badge2({
   tone,
   className,
   children,
-}: VariantProps<typeof badgeVariants> & { className?: string; children: React.ReactNode }) {
+}: VariantProps<typeof badgeVariants> & {
+  className?: string | undefined;
+  children: React.ReactNode;
+}) {
   return <span className={cn(badgeVariants({ tone }), className)}>{children}</span>;
 }
 
