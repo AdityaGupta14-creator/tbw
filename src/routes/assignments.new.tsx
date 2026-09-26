@@ -105,7 +105,7 @@ function NewAssignment() {
                   <select
                     id="course"
                     className="h-9 w-full rounded-sm border border-input bg-background px-2 text-[13px]"
-                    defaultValue={courses[0].code}
+                    defaultValue={courses[0]?.code ?? ""}
                   >
                     {courses.map((c) => (
                       <option key={c.id}>{`${c.code} — ${c.title}`}</option>
@@ -176,7 +176,7 @@ function NewAssignment() {
                   </div>
                   <Switch
                     id={`chk-${c.id}`}
-                    checked={enabled[c.id]}
+                    checked={enabled[c.id] ?? true}
                     onCheckedChange={(v) => setEnabled((p) => ({ ...p, [c.id]: v }))}
                   />
                 </li>
