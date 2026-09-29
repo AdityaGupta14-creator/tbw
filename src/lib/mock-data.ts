@@ -592,6 +592,8 @@ export const similarityDistribution = [
   { band: "41%+", count: 13 },
 ];
 
+import { db } from "@/lib/backend/db";
+
 export const departments = [
   { name: "Computer Engineering", faculty: 24, students: 612, courses: 18, submissions: 2140 },
   { name: "Electrical Engineering", faculty: 18, students: 486, courses: 14, submissions: 1502 },
@@ -599,18 +601,95 @@ export const departments = [
   { name: "Civil Engineering", faculty: 15, students: 398, courses: 12, submissions: 1104 },
 ];
 
-export function findCourse(id: string) {
-  return courses.find((c) => c.id === id || c.code.toLowerCase() === id.toLowerCase());
+export function findCourse(id: string): Course | undefined {
+  const local = courses.find((c) => c.id === id || c.code.toLowerCase() === id.toLowerCase());
+  if (local) return local;
+  try {
+    const dbCourse = db.getCourseById(id);
+    if (dbCourse) {
+      return {
+        id: dbCourse.id,
+        code: dbCourse.course_code,
+        title: dbCourse.name,
+        department: dbCourse.department_name || "Computer Engineering",
+        section: dbCourse.section || "A",
+        students: dbCourse.student_count || 64,
+        assignments: dbCourse.assignment_count || 0,
+        pending: dbCourse.pending_count || 0,
+      };
+    }
+  } catch {}
+  return undefined;
 }
 
-export function findAssignment(id: string) {
-  return assignments.find((a) => a.id === id);
+export function findAssignment(id: string): Assignment | undefined {
+  const local = assignments.find((a) => a.id === id);
+  if (local) return local;
+  try {
+    const dbAsg = db.getAssignmentById(id);
+    if (dbAsg) {
+      return {
+        id: dbAsg.id,
+        courseCode: dbAsg.course_code || "ENG-CSE-301",
+        title: dbAsg.title,
+        type: dbAsg.assignment_type || "Technical Report",
+        due: dbAsg.due_date ? new Date(dbAsg.due_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "24 Oct 2026",
+        submitted: dbAsg.submitted_count || 0,
+        total: dbAsg.total_students || 64,
+        avgSimilarity: 14,
+        pending: 1,
+        citationStyle: dbAsg.citation_style || "IEEE",
+      };
+    }
+  } catch {}
+  return undefined;
 }
 
-export function findSubmission(id: string) {
-  return submissions.find((s) => s.id.toLowerCase() === id.toLowerCase());
+export function findSubmission(id: string): Submission | undefined {
+  try {
+    const dbSub = db.getSubmissionById(id);
+    if (dbSub) {
+      return {
+        id: dbSub.submission_code || dbSub.id,
+        student: dbSub.student_name || "Student",
+        roll: dbSub.student_roll || "22CSE",
+        courseCode: dbSub.course_code || "ENG-CSE-301",
+        assignmentId: dbSub.assignment_id || "asg-301-02",
+        assignment: dbSub.assignment_title || "Technical Report",
+        submitted: dbSub.submitted_at || "Today",
+        similarity: dbSub.similarity_percentage ?? 0,
+        citationIssues: dbSub.citation_issue_count ?? 0,
+        status: (dbSub.status === "needs_review" ? "review" : dbSub.status === "reviewed" ? "reviewed" : "pending") as ReviewStatus,
+        drafts: dbSub.drafts_count ?? 1,
+        matchedSources: dbSub.matched_source_count ?? 0,
+        document: dbSub.document,
+      } as any;
+    }
+  } catch {}
+  const local = submissions.find((s) => s.id.toLowerCase() === id.toLowerCase());
+  if (local) return local;
+  return undefined;
 }
 
-export function findStudent(id: string) {
-  return students.find((s) => s.id === id || s.roll.toLowerCase() === id.toLowerCase());
+export function findStudent(id: string): Student | undefined {
+  const local = students.find((s) => s.id === id || s.roll.toLowerCase() === id.toLowerCase());
+  if (local) return local;
+  try {
+    const dbStudent = db.getStudentById(id);
+    if (dbStudent) {
+      return {
+        id: dbStudent.id,
+        name: dbStudent.full_name,
+        roll: dbStudent.roll_number || "22CSE",
+        courseCode: dbStudent.department_name || "Computer Engineering",
+        section: "A",
+        submissions: 0,
+        avgSimilarity: 0,
+        flagged: 0,
+        email: dbStudent.email,
+      };
+    }
+  } catch {}
+  return undefined;
 }
+

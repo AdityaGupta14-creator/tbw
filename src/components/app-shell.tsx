@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
+  ArrowLeftRight,
   BarChart3,
   BookOpen,
   Bell,
@@ -11,6 +12,7 @@ import {
   GraduationCap,
   HelpCircle,
   LayoutDashboard,
+  LogOut,
   Menu,
   MessageSquare,
   Search,
@@ -19,6 +21,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useStudentSession } from "@/lib/student-session";
+import { StudentSwitcherDialog } from "@/components/student-switcher-dialog";
+import { NotificationsPopover } from "@/components/notifications-popover";
 import {
   CommandDialog,
   CommandEmpty,
@@ -74,9 +79,27 @@ const labels: Record<string, string> = {
   help: "Help",
 };
 
-function SidebarContent({ role, onNavigate }: { role: ShellRole; onNavigate?: () => void }) {
+function getInitials(name?: string): string {
+  if (!name) return "ST";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return `${parts[0]![0]}${parts[parts.length - 1]![0]}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+function SidebarContent({
+  role,
+  onNavigate,
+  onOpenSwitcher,
+}: {
+  role: ShellRole;
+  onNavigate?: () => void;
+  onOpenSwitcher?: () => void;
+}) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const nav = role === "student" ? studentNav : role === "admin" ? adminNav : facultyNav;
+  const { currentStudent } = useStudentSession();
 
   return (
     <div className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
@@ -166,19 +189,53 @@ function SidebarContent({ role, onNavigate }: { role: ShellRole; onNavigate?: ()
             </Link>
           </li>
         </ul>
-        <div className="mt-3 flex items-center gap-2.5 rounded-sm bg-sidebar-accent/50 px-2.5 py-2">
-          <span className="num flex size-7 items-center justify-center rounded-full bg-sidebar-primary text-[11px] font-semibold text-sidebar-primary-foreground">
-            {role === "student" ? "RS" : role === "admin" ? "AD" : "PK"}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-[12px] font-medium text-sidebar-accent-foreground">
-              {role === "student" ? "Riya Sharma" : role === "admin" ? "Registrar Office" : "Dr. P. Kulkarni"}
-            </p>
-            <p className="num truncate text-[10px] text-sidebar-foreground/65">
-              {role === "student" ? "22CSE057" : role === "admin" ? "Administrator" : "Computer Engineering"}
-            </p>
+
+        {role === "student" ? (
+          <div className="mt-3 flex items-center justify-between gap-1.5 rounded-sm bg-sidebar-accent/50 p-2">
+            <button
+              type="button"
+              onClick={onOpenSwitcher}
+              className="flex min-w-0 flex-1 items-center gap-2 text-left transition-opacity hover:opacity-80"
+              title="Click to switch student profile or log out"
+            >
+              <span className="num flex size-7 shrink-0 items-center justify-center rounded-full bg-sidebar-primary text-[11px] font-semibold text-sidebar-primary-foreground">
+                {getInitials(currentStudent.full_name)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[12px] font-medium text-sidebar-accent-foreground">
+                  {currentStudent.full_name}
+                </p>
+                <p className="num truncate text-[10px] text-sidebar-foreground/65">
+                  {currentStudent.roll_number}
+                </p>
+              </div>
+            </button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-7 shrink-0 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              onClick={onOpenSwitcher}
+              title="Switch Account / Log out"
+            >
+              <ArrowLeftRight className="size-3.5" />
+            </Button>
           </div>
-        </div>
+        ) : (
+          <div className="mt-3 flex items-center gap-2.5 rounded-sm bg-sidebar-accent/50 px-2.5 py-2">
+            <span className="num flex size-7 items-center justify-center rounded-full bg-sidebar-primary text-[11px] font-semibold text-sidebar-primary-foreground">
+              {role === "admin" ? "AD" : "PK"}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-[12px] font-medium text-sidebar-accent-foreground">
+                {role === "admin" ? "Registrar Office" : "Dr. P. Kulkarni"}
+              </p>
+              <p className="num truncate text-[10px] text-sidebar-foreground/65">
+                {role === "admin" ? "Administrator" : "Computer Engineering"}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -270,6 +327,8 @@ export function AppShell({
 }) {
   const [open, setOpen] = useState(false);
   const [semester, setSemester] = useState(semesters[0]);
+  const [studentSwitcherOpen, setStudentSwitcherOpen] = useState(false);
+  const { currentStudent } = useStudentSession();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -285,7 +344,7 @@ export function AppShell({
   return (
     <div className="min-h-screen bg-background">
       <aside className="fixed inset-y-0 left-0 hidden w-60 border-r border-sidebar-border lg:block">
-        <SidebarContent role={role} />
+        <SidebarContent role={role} onOpenSwitcher={() => setStudentSwitcherOpen(true)} />
       </aside>
 
       <div className="lg:pl-60">
@@ -298,7 +357,10 @@ export function AppShell({
             </SheetTrigger>
             <SheetContent side="left" className="w-60 border-sidebar-border p-0">
               <SheetTitle className="sr-only">Navigation</SheetTitle>
-              <SidebarContent role={role} />
+              <SidebarContent
+                role={role}
+                onOpenSwitcher={() => setStudentSwitcherOpen(true)}
+              />
             </SheetContent>
           </Sheet>
 
@@ -329,18 +391,36 @@ export function AppShell({
               ))}
             </select>
 
-            <Button variant="ghost" size="icon" aria-label="Notifications" className="relative size-8">
-              <Bell className="size-4" />
-              <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-danger" />
-            </Button>
+            <NotificationsPopover studentId={role === "student" ? currentStudent.id : undefined} />
 
-            <Link
-              to={role === "student" ? "/student" : "/settings"}
-              className="num flex size-8 items-center justify-center rounded-full bg-navy text-[11px] font-semibold text-navy-foreground"
-              aria-label="Profile"
-            >
-              {role === "student" ? "RS" : role === "admin" ? "AD" : "PK"}
-            </Link>
+
+            {role === "student" ? (
+              <button
+                type="button"
+                onClick={() => setStudentSwitcherOpen(true)}
+                className="flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-accent hover:border-brand/40"
+                title="Switch student profile or log out"
+              >
+                <span className="num flex size-6 items-center justify-center rounded-full bg-brand text-[10px] font-semibold text-brand-foreground">
+                  {getInitials(currentStudent.full_name)}
+                </span>
+                <span className="hidden sm:inline font-medium text-[11px] max-w-[120px] truncate">
+                  {currentStudent.full_name}
+                </span>
+                <span className="text-[10px] text-muted-foreground hidden md:inline">
+                  ({currentStudent.roll_number})
+                </span>
+                <ArrowLeftRight className="size-3 text-muted-foreground ml-0.5" />
+              </button>
+            ) : (
+              <Link
+                to="/settings"
+                className="num flex size-8 items-center justify-center rounded-full bg-navy text-[11px] font-semibold text-navy-foreground"
+                aria-label="Profile"
+              >
+                {role === "admin" ? "AD" : "PK"}
+              </Link>
+            )}
           </div>
         </header>
 
@@ -348,6 +428,10 @@ export function AppShell({
       </div>
 
       <SearchCommand open={open} setOpen={setOpen} />
+      <StudentSwitcherDialog
+        open={studentSwitcherOpen}
+        onOpenChange={setStudentSwitcherOpen}
+      />
     </div>
   );
 }

@@ -47,21 +47,31 @@ export function Td({
   children,
   className,
   numeric,
+  onClick,
 }: {
   children: ReactNode;
   className?: string;
   numeric?: boolean;
+  onClick?: React.MouseEventHandler<HTMLTableCellElement>;
 }) {
   return (
-    <td className={cn("border-b border-border px-3 py-2 align-middle", numeric && "text-right", className)}>
+    <td onClick={onClick} className={cn("border-b border-border px-3 py-2 align-middle", numeric && "text-right", className)}>
       {children}
     </td>
   );
 }
 
-export function Tr({ children, className }: { children: ReactNode; className?: string }) {
+export function Tr({
+  children,
+  className,
+  onClick,
+}: {
+  children: ReactNode;
+  className?: string;
+  onClick?: React.MouseEventHandler<HTMLTableRowElement>;
+}) {
   return (
-    <tr className={cn("transition-colors hover:bg-accent/60 focus-within:bg-accent/60", className)}>
+    <tr onClick={onClick} className={cn("transition-colors hover:bg-accent/60 focus-within:bg-accent/60", className)}>
       {children}
     </tr>
   );

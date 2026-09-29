@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/page-header";
@@ -5,13 +6,70 @@ import { StatBar } from "@/components/stat-bar";
 import { TableShell, Th, Td, Tr } from "@/components/data-table";
 import { StatusBadge, SimilarityValue } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import { findAssignment, submissions } from "@/lib/mock-data";
+import { findAssignment, submissions, type Assignment } from "@/lib/mock-data";
+import { verityApi } from "@/services/verity-api";
 
 export const Route = createFileRoute("/assignments/$assignmentId")({
-  loader: ({ params }) => {
+  loader: async ({ params }) => {
+    try {
+      const a = await verityApi.assignments.get(params.assignmentId);
+      if (a) {
+        const formattedDue = a.due_date
+          ? isNaN(Date.parse(a.due_date))
+            ? a.due_date
+            : new Date(a.due_date).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })
+          : "24 Oct 2026";
+
+        const dbSubs = await verityApi.submissions.list();
+        const relSubs = dbSubs
+          .filter((s) => s.assignment_id === a.id || s.course_code === a.course_code)
+          .map((s) => ({
+            id: s.submission_code || s.id,
+            student: s.student_name || "Student",
+            roll: s.student_roll || "22CSE",
+            courseCode: s.course_code || a.course_code || "ENG-CSE-301",
+            assignmentId: a.id,
+            assignment: a.title,
+            submitted: s.submitted_at
+              ? new Date(s.submitted_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+              : "Today",
+            similarity: s.similarity_percentage ?? 0,
+            citationIssues: s.citation_issue_count ?? 0,
+            status: (s.status === "needs_review" ? "review" : s.status === "reviewed" ? "reviewed" : "pending") as any,
+            drafts: s.drafts_count ?? 1,
+            matchedSources: s.matched_source_count ?? 0,
+          }));
+
+        return {
+          assignment: {
+            id: a.id,
+            courseCode: a.course_code || "ENG-CSE-301",
+            title: a.title,
+            type: a.assignment_type || "Technical Report",
+            due: formattedDue,
+            submitted: relSubs.length || a.submitted_count || 0,
+            total: a.total_students || 64,
+            avgSimilarity: relSubs.length > 0 ? Math.round(relSubs.reduce((acc, s) => acc + s.similarity, 0) / relSubs.length) : (a.avg_similarity || 0),
+            pending: relSubs.filter((s) => s.status === "review").length || a.pending_count || 0,
+            citationStyle: a.citation_style || "IEEE",
+          },
+          submissions: relSubs.length > 0 ? relSubs : submissions.filter((s) => s.assignmentId === a.id || s.courseCode === a.course_code),
+        };
+      }
+    } catch (e) {
+      console.warn("API assignment load error:", e);
+    }
+
     const assignment = findAssignment(params.assignmentId);
     if (!assignment) throw notFound();
-    return { assignment };
+    const rows = submissions.filter(
+      (s) => s.assignmentId === assignment.id || s.courseCode === assignment.courseCode,
+    );
+    return { assignment, submissions: rows };
   },
   head: ({ loaderData }) => {
     if (!loaderData) {
@@ -35,10 +93,8 @@ export const Route = createFileRoute("/assignments/$assignmentId")({
 });
 
 function AssignmentDetail() {
-  const { assignment } = Route.useLoaderData();
-  const rows = submissions.filter(
-    (s) => s.assignmentId === assignment.id || s.courseCode === assignment.courseCode,
-  );
+  const { assignment, submissions: rows } = Route.useLoaderData();
+
 
   return (
     <AppShell>

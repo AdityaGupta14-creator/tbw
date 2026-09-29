@@ -10,21 +10,59 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as CompareRouteImport } from './routes/compare'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as HelpRouteImport } from './routes/help'
+import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as AssignmentsIndexRouteImport } from './routes/assignments.index'
 import { Route as AssignmentsAssignmentIdRouteImport } from './routes/assignments.$assignmentId'
 import { Route as AssignmentsNewRouteImport } from './routes/assignments.new'
 import { Route as CoursesIndexRouteImport } from './routes/courses.index'
 import { Route as CoursesCourseIdRouteImport } from './routes/courses.$courseId'
+import { Route as StudentIndexRouteImport } from './routes/student.index'
+import { Route as StudentAssignmentsRouteImport } from './routes/student.assignments'
+import { Route as StudentFeedbackRouteImport } from './routes/student.feedback'
+import { Route as StudentSubmissionsRouteImport } from './routes/student.submissions'
+import { Route as StudentsIndexRouteImport } from './routes/students.index'
+import { Route as StudentsStudentIdRouteImport } from './routes/students.$studentId'
+import { Route as SubmissionsIndexRouteImport } from './routes/submissions.index'
+import { Route as SubmissionsSubmissionIdRouteImport } from './routes/submissions.$submissionId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompareRoute = CompareRouteImport.update({
+  id: '/compare',
+  path: '/compare',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AssignmentsIndexRoute = AssignmentsIndexRouteImport.update({
@@ -52,73 +90,204 @@ const CoursesCourseIdRoute = CoursesCourseIdRouteImport.update({
   path: '/courses/$courseId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StudentIndexRoute = StudentIndexRouteImport.update({
+  id: '/student/',
+  path: '/student/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudentAssignmentsRoute = StudentAssignmentsRouteImport.update({
+  id: '/student/assignments',
+  path: '/student/assignments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudentFeedbackRoute = StudentFeedbackRouteImport.update({
+  id: '/student/feedback',
+  path: '/student/feedback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudentSubmissionsRoute = StudentSubmissionsRouteImport.update({
+  id: '/student/submissions',
+  path: '/student/submissions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudentsIndexRoute = StudentsIndexRouteImport.update({
+  id: '/students/',
+  path: '/students/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudentsStudentIdRoute = StudentsStudentIdRouteImport.update({
+  id: '/students/$studentId',
+  path: '/students/$studentId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SubmissionsIndexRoute = SubmissionsIndexRouteImport.update({
+  id: '/submissions/',
+  path: '/submissions/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SubmissionsSubmissionIdRoute = SubmissionsSubmissionIdRouteImport.update({
+  id: '/submissions/$submissionId',
+  path: '/submissions/$submissionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/compare': typeof CompareRoute
   '/dashboard': typeof DashboardRoute
+  '/help': typeof HelpRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
   '/assignments/$assignmentId': typeof AssignmentsAssignmentIdRoute
   '/assignments/new': typeof AssignmentsNewRoute
   '/courses/$courseId': typeof CoursesCourseIdRoute
+  '/student/assignments': typeof StudentAssignmentsRoute
+  '/student/feedback': typeof StudentFeedbackRoute
+  '/student/submissions': typeof StudentSubmissionsRoute
+  '/students/$studentId': typeof StudentsStudentIdRoute
+  '/submissions/$submissionId': typeof SubmissionsSubmissionIdRoute
   '/assignments/': typeof AssignmentsIndexRoute
   '/courses/': typeof CoursesIndexRoute
+  '/student/': typeof StudentIndexRoute
+  '/students/': typeof StudentsIndexRoute
+  '/submissions/': typeof SubmissionsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/compare': typeof CompareRoute
   '/dashboard': typeof DashboardRoute
+  '/help': typeof HelpRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
   '/assignments/$assignmentId': typeof AssignmentsAssignmentIdRoute
   '/assignments/new': typeof AssignmentsNewRoute
   '/courses/$courseId': typeof CoursesCourseIdRoute
+  '/student/assignments': typeof StudentAssignmentsRoute
+  '/student/feedback': typeof StudentFeedbackRoute
+  '/student/submissions': typeof StudentSubmissionsRoute
+  '/students/$studentId': typeof StudentsStudentIdRoute
+  '/submissions/$submissionId': typeof SubmissionsSubmissionIdRoute
   '/assignments': typeof AssignmentsIndexRoute
   '/courses': typeof CoursesIndexRoute
+  '/student': typeof StudentIndexRoute
+  '/students': typeof StudentsIndexRoute
+  '/submissions': typeof SubmissionsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/compare': typeof CompareRoute
   '/dashboard': typeof DashboardRoute
+  '/help': typeof HelpRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
   '/assignments/$assignmentId': typeof AssignmentsAssignmentIdRoute
   '/assignments/new': typeof AssignmentsNewRoute
   '/courses/$courseId': typeof CoursesCourseIdRoute
+  '/student/assignments': typeof StudentAssignmentsRoute
+  '/student/feedback': typeof StudentFeedbackRoute
+  '/student/submissions': typeof StudentSubmissionsRoute
+  '/students/$studentId': typeof StudentsStudentIdRoute
+  '/submissions/$submissionId': typeof SubmissionsSubmissionIdRoute
   '/assignments/': typeof AssignmentsIndexRoute
   '/courses/': typeof CoursesIndexRoute
+  '/student/': typeof StudentIndexRoute
+  '/students/': typeof StudentsIndexRoute
+  '/submissions/': typeof SubmissionsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
+    | '/compare'
     | '/dashboard'
+    | '/help'
+    | '/reports'
+    | '/settings'
     | '/assignments/$assignmentId'
     | '/assignments/new'
     | '/courses/$courseId'
+    | '/student/assignments'
+    | '/student/feedback'
+    | '/student/submissions'
+    | '/students/$studentId'
+    | '/submissions/$submissionId'
     | '/assignments/'
     | '/courses/'
+    | '/student/'
+    | '/students/'
+    | '/submissions/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
+    | '/compare'
     | '/dashboard'
+    | '/help'
+    | '/reports'
+    | '/settings'
     | '/assignments/$assignmentId'
     | '/assignments/new'
     | '/courses/$courseId'
+    | '/student/assignments'
+    | '/student/feedback'
+    | '/student/submissions'
+    | '/students/$studentId'
+    | '/submissions/$submissionId'
     | '/assignments'
     | '/courses'
+    | '/student'
+    | '/students'
+    | '/submissions'
   id:
     | '__root__'
     | '/'
+    | '/admin'
+    | '/compare'
     | '/dashboard'
+    | '/help'
+    | '/reports'
+    | '/settings'
     | '/assignments/$assignmentId'
     | '/assignments/new'
     | '/courses/$courseId'
+    | '/student/assignments'
+    | '/student/feedback'
+    | '/student/submissions'
+    | '/students/$studentId'
+    | '/submissions/$submissionId'
     | '/assignments/'
     | '/courses/'
+    | '/student/'
+    | '/students/'
+    | '/submissions/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  CompareRoute: typeof CompareRoute
   DashboardRoute: typeof DashboardRoute
+  HelpRoute: typeof HelpRoute
+  ReportsRoute: typeof ReportsRoute
+  SettingsRoute: typeof SettingsRoute
   AssignmentsAssignmentIdRoute: typeof AssignmentsAssignmentIdRoute
   AssignmentsNewRoute: typeof AssignmentsNewRoute
   CoursesCourseIdRoute: typeof CoursesCourseIdRoute
+  StudentAssignmentsRoute: typeof StudentAssignmentsRoute
+  StudentFeedbackRoute: typeof StudentFeedbackRoute
+  StudentSubmissionsRoute: typeof StudentSubmissionsRoute
+  StudentsStudentIdRoute: typeof StudentsStudentIdRoute
+  SubmissionsSubmissionIdRoute: typeof SubmissionsSubmissionIdRoute
   AssignmentsIndexRoute: typeof AssignmentsIndexRoute
   CoursesIndexRoute: typeof CoursesIndexRoute
+  StudentIndexRoute: typeof StudentIndexRoute
+  StudentsIndexRoute: typeof StudentsIndexRoute
+  SubmissionsIndexRoute: typeof SubmissionsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -130,11 +299,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare': {
+      id: '/compare'
+      path: '/compare'
+      fullPath: '/compare'
+      preLoaderRoute: typeof CompareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/assignments/': {
@@ -172,17 +376,86 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CoursesCourseIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/student/': {
+      id: '/student/'
+      path: '/student'
+      fullPath: '/student/'
+      preLoaderRoute: typeof StudentIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/student/assignments': {
+      id: '/student/assignments'
+      path: '/student/assignments'
+      fullPath: '/student/assignments'
+      preLoaderRoute: typeof StudentAssignmentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/student/feedback': {
+      id: '/student/feedback'
+      path: '/student/feedback'
+      fullPath: '/student/feedback'
+      preLoaderRoute: typeof StudentFeedbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/student/submissions': {
+      id: '/student/submissions'
+      path: '/student/submissions'
+      fullPath: '/student/submissions'
+      preLoaderRoute: typeof StudentSubmissionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/students/': {
+      id: '/students/'
+      path: '/students'
+      fullPath: '/students/'
+      preLoaderRoute: typeof StudentsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/students/$studentId': {
+      id: '/students/$studentId'
+      path: '/students/$studentId'
+      fullPath: '/students/$studentId'
+      preLoaderRoute: typeof StudentsStudentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/submissions/': {
+      id: '/submissions/'
+      path: '/submissions'
+      fullPath: '/submissions/'
+      preLoaderRoute: typeof SubmissionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/submissions/$submissionId': {
+      id: '/submissions/$submissionId'
+      path: '/submissions/$submissionId'
+      fullPath: '/submissions/$submissionId'
+      preLoaderRoute: typeof SubmissionsSubmissionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  CompareRoute: CompareRoute,
   DashboardRoute: DashboardRoute,
+  HelpRoute: HelpRoute,
+  ReportsRoute: ReportsRoute,
+  SettingsRoute: SettingsRoute,
   AssignmentsAssignmentIdRoute: AssignmentsAssignmentIdRoute,
   AssignmentsNewRoute: AssignmentsNewRoute,
   CoursesCourseIdRoute: CoursesCourseIdRoute,
+  StudentAssignmentsRoute: StudentAssignmentsRoute,
+  StudentFeedbackRoute: StudentFeedbackRoute,
+  StudentSubmissionsRoute: StudentSubmissionsRoute,
+  StudentsStudentIdRoute: StudentsStudentIdRoute,
+  SubmissionsSubmissionIdRoute: SubmissionsSubmissionIdRoute,
   AssignmentsIndexRoute: AssignmentsIndexRoute,
   CoursesIndexRoute: CoursesIndexRoute,
+  StudentIndexRoute: StudentIndexRoute,
+  StudentsIndexRoute: StudentsIndexRoute,
+  SubmissionsIndexRoute: SubmissionsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

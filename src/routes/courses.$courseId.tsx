@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import {
   Bar,
@@ -23,7 +24,9 @@ import {
   students,
   submissionActivity,
   submissions,
+  type ReviewStatus,
 } from "@/lib/mock-data";
+import { verityApi } from "@/services/verity-api";
 
 export const Route = createFileRoute("/courses/$courseId")({
   loader: ({ params }) => {
@@ -54,9 +57,53 @@ export const Route = createFileRoute("/courses/$courseId")({
 
 function CourseDetail() {
   const { course } = Route.useLoaderData();
-  const courseAssignments = assignments.filter((a) => a.courseCode === course.code);
-  const courseSubmissions = submissions.filter((s) => s.courseCode === course.code);
+  const [courseAssignments, setCourseAssignments] = useState(
+    assignments.filter((a) => a.courseCode === course.code),
+  );
+  const [courseSubmissions, setCourseSubmissions] = useState(
+    submissions.filter((s) => s.courseCode === course.code),
+  );
   const courseStudents = students.filter((s) => s.courseCode === course.code);
+
+  useEffect(() => {
+    verityApi.assignments.list(course.id).then((dbList) => {
+      if (dbList && dbList.length > 0) {
+        const mapped = dbList.map((a) => ({
+          id: a.id,
+          courseCode: a.course_code || course.code,
+          title: a.title,
+          type: a.assignment_type || "Technical Report",
+          due: a.due_date ? new Date(a.due_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "24 Oct 2026",
+          submitted: a.submitted_count || 0,
+          total: a.total_students || 64,
+          avgSimilarity: 12,
+          pending: 1,
+          citationStyle: a.citation_style || "IEEE",
+        }));
+        setCourseAssignments(mapped);
+      }
+    });
+
+    verityApi.submissions.list({ courseCode: course.code }).then((dbSubs) => {
+      if (dbSubs && dbSubs.length > 0) {
+        const mapped = dbSubs.map((s) => ({
+          id: s.submission_code || s.id,
+          student: s.student_name || "Student",
+          roll: s.student_roll || "22CSE",
+          courseCode: s.course_code || course.code,
+          assignmentId: s.assignment_id,
+          assignment: s.assignment_title || "Technical Report",
+          submitted: s.submitted_at || "Today",
+          similarity: s.similarity_percentage ?? 0,
+          citationIssues: s.citation_issue_count ?? 0,
+          status: (s.status === "needs_review" ? "review" : s.status === "reviewed" ? "reviewed" : "pending") as ReviewStatus,
+          drafts: s.drafts_count ?? 1,
+          matchedSources: s.matched_source_count ?? 4,
+        }));
+        setCourseSubmissions(mapped);
+      }
+    });
+  }, [course.id, course.code]);
 
   return (
     <AppShell>
