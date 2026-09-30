@@ -14,6 +14,7 @@ import type {
   ObservableWritingCharacteristics,
   ModelDerivedIndicators,
 } from "@/types/database";
+import { separateReferencesSection } from "./similarity/technical-vocabulary";
 
 export type { AIWritingAnalysisResult };
 
@@ -53,20 +54,17 @@ export const PROBABILISTIC_DISCLAIMER =
 /**
  * Built-in Statistical AI-Writing Pattern Analyzer.
  * Measures observable lexical, syntactic, and structural signals deterministically.
+ * Excludes bibliography/reference sections to assess only authentic student prose.
  */
 export class StatisticalAIWritingProvider implements AIWritingAnalysisProvider {
   public readonly name = "Verity-Statistical-Pattern-Analyzer-v2";
 
   public analyze(documentText: string): AIWritingAnalysisResult {
-    const rawText = documentText.trim();
-    const words = rawText.split(/\s+/).filter(Boolean);
-    const totalWords = words.length;
-
-    // Minimum evidence safeguard
-    if (totalWords < 45) {
+    const rawInput = (documentText || "").trim();
+    if (!rawInput) {
       return {
         status: "insufficient_evidence",
-        confidence: 0.1,
+        confidence: 0.0,
         indicators: [],
         observableCharacteristics: {
           sentenceCount: 0,
@@ -80,7 +78,36 @@ export class StatisticalAIWritingProvider implements AIWritingAnalysisProvider {
           repeatedPhraseCount: 0,
         },
         explanation:
-          "The submitted text is too short (< 45 words) to perform statistically valid writing pattern analysis.",
+          "Insufficient prose content for reliable stylometric analysis. Bibliography/reference content is excluded from this analysis.",
+        disclaimer: PROBABILISTIC_DISCLAIMER,
+      };
+    }
+
+    // 1. Separate and isolate prose content (exclude References / Bibliography)
+    const { bodyText } = separateReferencesSection(rawInput);
+    const rawText = bodyText.trim();
+    const words = rawText.split(/\s+/).filter(Boolean);
+    const totalWords = words.length;
+
+    // Minimum prose evidence safeguard (minimum 45 words of actual prose)
+    if (totalWords < 45) {
+      return {
+        status: "insufficient_evidence",
+        confidence: 0.0,
+        indicators: [],
+        observableCharacteristics: {
+          sentenceCount: 0,
+          averageSentenceLength: 0,
+          sentenceLengthStdDev: 0,
+          vocabularyDiversityTTR: 0,
+          paragraphCount: 0,
+          averageParagraphLength: 0,
+          transitionWordDensity: 0,
+          stylisticConsistencyScore: 0,
+          repeatedPhraseCount: 0,
+        },
+        explanation:
+          "Insufficient prose content for reliable stylometric analysis. Bibliography/reference content is excluded from this analysis.",
         disclaimer: PROBABILISTIC_DISCLAIMER,
       };
     }

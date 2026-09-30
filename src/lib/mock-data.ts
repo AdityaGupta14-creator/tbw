@@ -309,6 +309,20 @@ export const submissions: Submission[] = [
     drafts: 3,
     matchedSources: 8,
   },
+  {
+    id: "SUB-2026-74022",
+    student: "Ananya Iyer",
+    roll: "22CSE018",
+    courseCode: "ENG-CSE-301",
+    assignmentId: "asg-301-02",
+    assignment: "Technical Report 10",
+    submitted: "Yesterday, 19:40",
+    similarity: 0,
+    citationIssues: 4,
+    status: "review",
+    drafts: 1,
+    matchedSources: 0,
+  },
 ];
 
 export const students: Student[] = [

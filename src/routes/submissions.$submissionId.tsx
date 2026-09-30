@@ -375,10 +375,52 @@ function SubmissionReviewPage() {
     { label: "Open Web Repositories", value: Math.round((liveAnalysis?.similarity_percentage ?? submission.similarity ?? 0) * 0.4) },
   ];
 
-  const activeWpStatus = liveAnalysis?.writing_pattern_status ?? (submission.similarity > 25 ? "Requires Review" : "Normal");
+  const proseWordCount = (submission as any).document?.proseWordCount ?? (submission as any).document?.prose_word_count ?? (() => {
+    const rawTxt = (submission as any).document?.extracted_text;
+    if (!rawTxt) return 0;
+    const refMatch = /(?:[\r\n]+|^)(?:references|bibliography|works cited)\s*[\r\n]+/i.exec(rawTxt);
+    const body = refMatch ? rawTxt.slice(0, refMatch.index).trim() : rawTxt.trim();
+    return body.split(/\s+/).filter(Boolean).length;
+  })();
+
+  const isWpUnavailable =
+    !isDemoSubmission &&
+    (liveAnalysis?.ai_writing_analysis?.status === "insufficient_evidence" ||
+      liveAnalysis?.writing_pattern_status === "Writing pattern analysis unavailable" ||
+      proseWordCount < 45);
+
+  const activeWpStatus = isDemoSubmission
+    ? (submission.similarity > 25 ? "Requires Review" : "Normal")
+    : isWpUnavailable
+    ? "Writing pattern analysis unavailable"
+    : liveAnalysis?.writing_pattern_status ?? (submission.similarity > 25 ? "Requires Review" : "Normal");
+
+  const rawConsistency = liveAnalysis?.ai_writing_analysis?.observableCharacteristics?.stylisticConsistencyScore ?? 50;
+  // Intended range of stylistic consistency is [0, 100]%. Normalize and clamp strictly so impossible values like 5000% never render:
+  const normalizedConsistency = Math.max(0, Math.min(100, Math.round(rawConsistency > 1 ? rawConsistency : rawConsistency * 100)));
+
   const activeWpIndicators = isDemoSubmission
     ? writingPattern.indicators.map((i) => ({ ...i, label: `${i.label} (Demo Reference)` }))
-    : liveAnalysis?.ai_writing_analysis?.observableCharacteristics && ((submission as any).document?.word_count ?? 0) >= 45
+    : isWpUnavailable
+    ? [
+        {
+          label: "Vocabulary Richness (TTR)",
+          value: "Observed — insufficient sample for interpretation",
+        },
+        {
+          label: "Sentence Length Variance",
+          value: "Observed — insufficient sample for interpretation",
+        },
+        {
+          label: "Stylistic Consistency",
+          value: "Observed — insufficient sample for interpretation",
+        },
+        {
+          label: "Transition Density",
+          value: "Observed — insufficient sample for interpretation",
+        },
+      ]
+    : liveAnalysis?.ai_writing_analysis?.observableCharacteristics
     ? [
         {
           label: "Vocabulary Richness (TTR)",
@@ -390,7 +432,7 @@ function SubmissionReviewPage() {
         },
         {
           label: "Stylistic Consistency",
-          value: `${(liveAnalysis.ai_writing_analysis.observableCharacteristics.stylisticConsistencyScore * 100).toFixed(0)}%`,
+          value: `${normalizedConsistency}%`,
         },
         {
           label: "Transition Density",
@@ -398,10 +440,10 @@ function SubmissionReviewPage() {
         },
       ]
     : [
-        { label: "Vocabulary Richness", value: "Insufficient sample text (< 45 words)" },
-        { label: "Sentence Length Variance", value: "N/A (Short document)" },
-        { label: "Stylistic Consistency", value: "N/A" },
-        { label: "Transition Density", value: "N/A" },
+        { label: "Vocabulary Richness", value: "Observed — insufficient sample for interpretation" },
+        { label: "Sentence Length Variance", value: "Observed — insufficient sample for interpretation" },
+        { label: "Stylistic Consistency", value: "Observed — insufficient sample for interpretation" },
+        { label: "Transition Density", value: "Observed — insufficient sample for interpretation" },
       ];
 
   const isStudentViewer = currentUserRole === "student";
@@ -1398,23 +1440,52 @@ function SubmissionReviewPage() {
                     <span className="text-[12px] font-semibold text-foreground">
                       Writing Pattern Analysis
                     </span>
-                    <span className="num rounded-xs bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                    <span className={`num rounded-xs px-1.5 py-0.5 text-[10px] font-medium ${
+                      isWpUnavailable
+                        ? "bg-muted text-muted-foreground border border-border"
+                        : activeWpStatus === "Requires Review" || activeWpStatus === "Review Recommended"
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-emerald-100 text-emerald-800"
+                    }`}>
                       {activeWpStatus}
                     </span>
                   </div>
-                  <div className="mt-2.5 grid grid-cols-2 gap-2 text-[11px]">
-                    {activeWpIndicators.map((ind) => (
-                      <div key={ind.label} className="rounded-xs bg-muted/40 p-1.5">
-                        <span className="block text-[10px] text-muted-foreground">{ind.label}</span>
-                        <span className="num font-semibold text-foreground">{ind.value}</span>
+
+                  {isWpUnavailable ? (
+                    <div className="mt-2.5 rounded-xs border border-border/80 bg-muted/20 p-2.5 space-y-2">
+                      <p className="text-[11px] font-semibold text-foreground">
+                        Writing pattern analysis unavailable
+                      </p>
+                      <p className="text-[10px] leading-relaxed text-muted-foreground">
+                        Insufficient prose content for reliable stylometric analysis. Bibliography/reference content is excluded from this analysis.
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 text-[10px] pt-1 border-t border-border/50">
+                        {activeWpIndicators.map((ind) => (
+                          <div key={ind.label} className="rounded-xs bg-muted/40 p-1.5">
+                            <span className="block text-[9px] text-muted-foreground">{ind.label}</span>
+                            <span className="block font-medium text-muted-foreground italic text-[10px]" title={ind.value}>
+                              {ind.value}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="mt-2.5 grid grid-cols-2 gap-2 text-[11px]">
+                      {activeWpIndicators.map((ind) => (
+                        <div key={ind.label} className="rounded-xs bg-muted/40 p-1.5">
+                          <span className="block text-[10px] text-muted-foreground">{ind.label}</span>
+                          <span className="num font-semibold text-foreground">{ind.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <p className="mt-2.5 text-[10px] leading-relaxed text-muted-foreground italic border-t border-border pt-2">
                     {isDemoSubmission
                       ? writingPattern.note
-                      : ((submission as any).document?.word_count ?? 0) < 45
-                      ? "Document length is below the minimum sample threshold (45 words) required for robust burstiness and entropy metrics."
+                      : isWpUnavailable
+                      ? "Insufficient prose content to assess writing-pattern characteristics reliably."
                       : "Document structural cadence, burstiness, and entropy are consistent with authentic human academic composition."}
                   </p>
                 </div>
@@ -1520,17 +1591,43 @@ function SubmissionReviewPage() {
                     activeCitationAnalysis.issues.map((issue: any) => (
                       <div
                         key={issue.id}
-                        className="rounded-sm border border-warning/30 bg-warning-soft p-2.5 text-[12px]"
+                        id={`card-${issue.id}`}
+                        className="rounded-sm border border-warning/40 bg-warning-soft p-3 text-[12px] space-y-2"
                       >
-                        <div className="flex items-start gap-2">
-                          <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" />
-                          <p className="text-warning-foreground leading-snug">{issue.text}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <AlertTriangle className="size-3.5 shrink-0 text-warning" />
+                            <span className="font-semibold text-warning-foreground text-[11px]">
+                              {issue.type === "uncited_reference"
+                                ? "Uncited Reference (IEEE)"
+                                : issue.type === "missing_citation"
+                                ? "Missing Citation (IEEE)"
+                                : "Citation Formatting Issue"}
+                            </span>
+                          </div>
+                          <span className="num font-mono text-[10px] text-muted-foreground bg-muted/60 px-1 py-0.5 rounded-xs">
+                            {issue.id}
+                          </span>
                         </div>
-                        <div className="mt-2 text-right">
+
+                        {issue.referenceText && (
+                          <div className="rounded-xs bg-background/90 border border-border/70 p-2 font-mono text-[11px] text-foreground break-words shadow-xs">
+                            {issue.referenceText}
+                          </div>
+                        )}
+
+                        <p className="text-foreground/90 text-[11px] leading-relaxed">
+                          {issue.reason || issue.text}
+                        </p>
+
+                        <div className="flex items-center justify-between pt-1 border-t border-warning/20 text-[11px]">
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            Document Target: {issue.target || "Bibliography"}
+                          </span>
                           <button
                             type="button"
                             onClick={() => jumpToParagraph(issue.target || "p-1", 0)}
-                            className="text-[11px] font-medium text-brand hover:underline"
+                            className="text-[11px] font-medium text-brand hover:underline flex items-center gap-1"
                           >
                             Jump to citation in document →
                           </button>

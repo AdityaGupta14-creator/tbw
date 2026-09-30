@@ -74,9 +74,23 @@ export class InternalStudentCorpusProvider implements UnifiedSourceProvider {
       const allSubmissions = await this.fetchEligibleSubmissions(query);
 
       // 2. Filter out current submission and enforce boundary rules
+      const excludedIds = new Set<string>(
+        [query.excludeSubmissionId, ...(query.excludeSubmissionIds || [])]
+          .filter(Boolean)
+          .map((id) => id!.toLowerCase())
+      );
+
       const filtered = allSubmissions.filter((sub) => {
-        // Exclude current submission
-        if (query.excludeSubmissionId && (sub.id === query.excludeSubmissionId || sub.submissionCode === query.excludeSubmissionId)) {
+        // Exclude current submission by ID or submissionCode
+        if (
+          (sub.id && excludedIds.has(sub.id.toLowerCase())) ||
+          (sub.submissionCode && excludedIds.has(sub.submissionCode.toLowerCase()))
+        ) {
+          return false;
+        }
+
+        // Exclude student's own prior or current submissions (cannot plagiarize self in peer comparison)
+        if (query.submittingStudentId && sub.studentId === query.submittingStudentId) {
           return false;
         }
 

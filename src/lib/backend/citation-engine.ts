@@ -5,6 +5,9 @@ export interface CitationIssue {
   text: string;
   target?: string;
   referenceNumber?: number;
+  referenceText?: string;
+  reason?: string;
+  isIeeeViolation?: boolean;
 }
 
 export interface CitationAnalysisResult {
@@ -21,6 +24,7 @@ export interface CitationAnalysisResult {
  * Extracts in-text bracket citations [1], [2], [8], parses reference entries,
  * and identifies uncited bibliography records or claims lacking citations.
  * Operates purely on observable document text without synthetic mock fallbacks.
+ * Every issue is traceable directly to the underlying document text and paragraph.
  */
 export function analyzeIeeeCitations(documentText: string): CitationAnalysisResult {
   const text = (documentText || "").trim();
@@ -34,6 +38,9 @@ export function analyzeIeeeCitations(documentText: string): CitationAnalysisResu
       issues: [],
     };
   }
+
+  // Document paragraphs for reliable target positioning
+  const rawParagraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
 
   // 1. Locate References / Bibliography section
   const refSectionRegex = /(?:^|[\r\n]+)\s*(?:references|bibliography|works cited)\s*[\r\n]+([\s\S]*)$/i;
@@ -58,12 +65,15 @@ export function analyzeIeeeCitations(documentText: string): CitationAnalysisResu
   // 3. Extract numbered entries in references section: [1] ... [2] ... or 1. ... 2. ...
   const bibEntryRegex = /(?:\[(\d+)\]|^(\d+)[.)]|\((\d+)\))\s*([^\r\n]+)/gm;
   const bibNumbers: number[] = [];
+  const bibEntries = new Map<number, string>();
+
   while ((match = bibEntryRegex.exec(refSectionText)) !== null) {
     const rawNum = match[1] || match[2] || match[3];
     if (rawNum) {
       const num = parseInt(rawNum, 10);
       if (!isNaN(num)) {
         bibNumbers.push(num);
+        bibEntries.set(num, match[0].trim());
       }
     }
   }
@@ -78,19 +88,37 @@ export function analyzeIeeeCitations(documentText: string): CitationAnalysisResu
 
   const issues: CitationIssue[] = [];
 
+  const findParagraphForText = (snippet: string, fallbackPara = "p-1"): string => {
+    if (!snippet) return fallbackPara;
+    const idx = rawParagraphs.findIndex((p) => p.includes(snippet));
+    if (idx !== -1) return `p-${idx + 1}`;
+    return fallbackPara;
+  };
+
+  const defaultRefPara = (() => {
+    const rIdx = rawParagraphs.findIndex((p) => /(?:references|bibliography|works cited)/i.test(p));
+    return rIdx !== -1 ? `p-${rIdx + 1}` : `p-${Math.max(1, rawParagraphs.length)}`;
+  })();
+
   if (refSectionMatch) {
     // A References section exists
     if (uniqueBib.length > 0) {
       // 4a. Check for uncited references (in bibliography but not cited in text)
       for (const bibNum of uniqueBib) {
         if (!uniqueInTextCited.includes(bibNum)) {
+          const entryLine = bibEntries.get(bibNum) || `[${bibNum}]`;
+          const targetPara = findParagraphForText(`[${bibNum}]`, defaultRefPara);
+
           issues.push({
             id: `ci-uncited-${bibNum}`,
             type: "uncited_reference",
             severity: "potential_issue",
             text: `Reference [${bibNum}] appears in bibliography but is not cited in the text.`,
-            target: "p-9",
+            target: targetPara,
             referenceNumber: bibNum,
+            referenceText: entryLine,
+            reason: `Reference [${bibNum}] is listed in the bibliography but is never cited in the body of the paper. Under IEEE citation guidelines, every numbered reference must be cited sequentially in-text.`,
+            isIeeeViolation: true,
           });
         }
       }
@@ -98,13 +126,17 @@ export function analyzeIeeeCitations(documentText: string): CitationAnalysisResu
       // 4b. Check for citations in text that lack bibliography entries
       for (const citedNum of uniqueInTextCited) {
         if (!uniqueBib.includes(citedNum)) {
+          const targetPara = findParagraphForText(`[${citedNum}]`, "p-1");
           issues.push({
             id: `ci-missing-bib-${citedNum}`,
             type: "formatting",
             severity: "potential_issue",
             text: `In-text citation [${citedNum}] does not match any entry in the bibliography.`,
-            target: "p-2",
+            target: targetPara,
             referenceNumber: citedNum,
+            referenceText: `[${citedNum}]`,
+            reason: `In-text citation [${citedNum}] is cited in the prose body, but no corresponding reference entry [${citedNum}] exists in the bibliography.`,
+            isIeeeViolation: true,
           });
         }
       }
@@ -115,7 +147,10 @@ export function analyzeIeeeCitations(documentText: string): CitationAnalysisResu
         type: "formatting",
         severity: "potential_issue",
         text: `Bibliography contains ${rawRefLines.length} reference entry(s), but entries do not follow IEEE bracket numbering standard (e.g., [1] Author, Title).`,
-        target: "p-9",
+        target: defaultRefPara,
+        referenceText: rawRefLines[0] || "",
+        reason: "IEEE citation style mandates bracketed numerical identifiers [1], [2] at the start of each bibliography entry.",
+        isIeeeViolation: true,
       });
 
       if (uniqueInTextCited.length === 0) {
@@ -125,6 +160,8 @@ export function analyzeIeeeCitations(documentText: string): CitationAnalysisResu
           severity: "potential_issue",
           text: "Document lists bibliography references, but no corresponding in-text bracket citations [X] were detected in the text body.",
           target: "p-1",
+          reason: "Document contains a references section but has zero in-text citations in the body text.",
+          isIeeeViolation: true,
         });
       }
     }
@@ -137,6 +174,8 @@ export function analyzeIeeeCitations(documentText: string): CitationAnalysisResu
         severity: "detected",
         text: `Document contains in-text citations [${uniqueInTextCited.join(", ")}], but lacks a dedicated References / Bibliography section.`,
         target: "p-1",
+        reason: "Document includes numeric in-text bracket citations, but has no References or Bibliography section.",
+        isIeeeViolation: true,
       });
     }
   }

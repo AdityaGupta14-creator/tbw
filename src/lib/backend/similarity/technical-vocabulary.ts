@@ -314,7 +314,7 @@ export function separateReferencesSection(fullText: string): {
   bodyText: string;
   referencesText: string;
 } {
-  const refPattern = /(?:[\r\n]+|^)(?:references|bibliography|works cited)\s*[\r\n]+/i;
+  const refPattern = /(?:[\r\n]+|^)\s*(?:references|bibliography|works cited)\s*[\r\n]+/i;
   const match = refPattern.exec(fullText);
 
   if (match && match.index !== undefined) {

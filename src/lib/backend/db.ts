@@ -19,6 +19,7 @@ import type {
 } from "@/types/database";
 import { runSimilarityAnalysis } from "./similarity-engine";
 import { analyzeIeeeCitations } from "./citation-engine";
+import { analyzeAIWritingPatterns } from "./ai-writing-analysis";
 import { processUploadedDocument } from "./document-processor";
 import {
   processSubmissionDocument,
@@ -1351,6 +1352,126 @@ References
         updated_at: new Date(Date.now() - 50000000).toISOString(),
       },
       review_audit: [],
+    },
+    {
+      id: "SUB-2026-74022",
+      submission_code: "SUB-2026-74022",
+      assignment_id: "asg-301-02",
+      assignment_title: "Technical Report 10",
+      course_id: "eng-cse-301",
+      course_code: "ENG-CSE-301",
+      student_id: students[3]!.id,
+      student_name: students[3]!.full_name,
+      student_roll: students[3]!.roll_number,
+      version_number: 1,
+      status: "needs_review",
+      submitted_at: "Yesterday, 19:40",
+      is_final: true,
+      similarity_percentage: 0,
+      matched_source_count: 0,
+      citation_issue_count: 4,
+      drafts_count: 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      document: {
+        id: "doc-74022",
+        submission_id: "SUB-2026-74022",
+        file_name: "Technical_Report_10_Ananya_Iyer.txt",
+        file_type: "text/plain",
+        file_size: 480,
+        storage_path: "submissions/SUB-2026-74022.txt",
+        extracted_text: `Technical Report on Database Recovery Architectures
+Write-ahead logging ensures durability across unexpected power failures by forcing redo records prior to page writes.
+Fuzzy checkpointing bounds recovery duration by writing dirty page table snapshots without freezing active transactions.
+
+References
+[1] C. Mohan et al., "ARIES: A Transaction Recovery Method," ACM TODS.
+[2] J. Gray and A. Reuter, Transaction Processing: Concepts and Techniques.
+[3] M. Stonebraker, "The Design of POSTGRES," IEEE Trans. Knowl. Data Eng.
+[4] A. Silberschatz et al., Database System Concepts, McGraw-Hill.`,
+        page_count: 1,
+        word_count: 69,
+        created_at: new Date().toISOString(),
+      },
+      analysis: {
+        id: "ana-74022",
+        submission_id: "SUB-2026-74022",
+        status: "completed",
+        similarity_percentage: 0,
+        matched_source_count: 0,
+        student_overlap_percentage: 0,
+        citation_issue_count: 4,
+        writing_pattern_status: "Writing pattern analysis unavailable",
+        structural_similarity_percentage: 0,
+        evidence_breakdown: {
+          strong_percentage: 0,
+          moderate_percentage: 0,
+          semantic_percentage: 0,
+          weak_percentage: 0,
+          unique_matched_words: 0,
+          total_document_words: 69,
+        },
+        transparent_breakdown: {
+          exactSimilarity: 0,
+          shingleSimilarity: 0,
+          fuzzySimilarity: 0,
+          semanticSimilarity: 0,
+          structuralSimilarity: 0,
+          weightedSimilarity: 0,
+          evidenceLevel: "ignored",
+          confidence: 1.0,
+        },
+        matches: [],
+        passages: [],
+        citation_analysis: analyzeIeeeCitations(`Technical Report on Database Recovery Architectures
+Write-ahead logging ensures durability across unexpected power failures by forcing redo records prior to page writes.
+Fuzzy checkpointing bounds recovery duration by writing dirty page table snapshots without freezing active transactions.
+
+References
+[1] C. Mohan et al., "ARIES: A Transaction Recovery Method," ACM TODS.
+[2] J. Gray and A. Reuter, Transaction Processing: Concepts and Techniques.
+[3] M. Stonebraker, "The Design of POSTGRES," IEEE Trans. Knowl. Data Eng.
+[4] A. Silberschatz et al., Database System Concepts, McGraw-Hill.`),
+        ai_writing_analysis: analyzeAIWritingPatterns(`Technical Report on Database Recovery Architectures
+Write-ahead logging ensures durability across unexpected power failures by forcing redo records prior to page writes.
+Fuzzy checkpointing bounds recovery duration by writing dirty page table snapshots without freezing active transactions.
+
+References
+[1] C. Mohan et al., "ARIES: A Transaction Recovery Method," ACM TODS.
+[2] J. Gray and A. Reuter, Transaction Processing: Concepts and Techniques.
+[3] M. Stonebraker, "The Design of POSTGRES," IEEE Trans. Knowl. Data Eng.
+[4] A. Silberschatz et al., Database System Concepts, McGraw-Hill.`),
+        student_comparisons: [],
+        completed_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      },
+      review: {
+        id: "rev-74022",
+        submission_id: "SUB-2026-74022",
+        reviewer_id: faculty.id,
+        reviewer_name: faculty.full_name,
+        status: "pending",
+        decision: undefined,
+        faculty_notes: "Clean 0% similarity text. Flagged for review due to 4 uncited bibliography entries requiring in-text citation placement.",
+        reviewed_passages: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      review_audit: [
+        {
+          id: "aud-74022-01",
+          submission_id: "SUB-2026-74022",
+          review_id: "rev-74022",
+          actor_id: "system",
+          actor_name: "Verity Integrity Engine",
+          actor_role: "faculty",
+          action: "REVIEW_PENDING",
+          previous_status: undefined,
+          new_status: "pending",
+          notes: "Citation verification required: 4 issue(s) detected during format compliance check",
+          created_at: new Date().toISOString(),
+        },
+      ],
     },
   ];
 

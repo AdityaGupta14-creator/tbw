@@ -65,6 +65,8 @@ export interface SourceSearchQuery {
   distinctivePhrases?: string[] | undefined;
   /** Active submission ID to exclude from its own source corpus */
   excludeSubmissionId?: string | undefined;
+  /** Additional submission identifiers (code or ID) to exclude */
+  excludeSubmissionIds?: string[] | undefined;
   /** Submitting student profile ID */
   submittingStudentId?: string | undefined;
   /** Enrolled course ID for cohort isolation */

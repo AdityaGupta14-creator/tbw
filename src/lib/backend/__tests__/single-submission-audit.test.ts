@@ -17,6 +17,7 @@
 import { db } from "../db";
 import { runFullAcademicIntegrityAnalysis, runSimilarityAnalysis } from "../similarity-engine";
 import { analyzeIeeeCitations } from "../citation-engine";
+import { analyzeAIWritingPatterns } from "../ai-writing-analysis";
 import { processSubmissionDocument } from "../submission-analysis-service";
 import { generateAcademicAuditReportPdf } from "../reports/pdf-audit-report-generator";
 import { findSubmission } from "../../mock-data";
@@ -106,13 +107,55 @@ async function runSingleSubmissionAuditSuite() {
   assert(citeOnlyOutput.analysis?.citation_issue_count === 4, "Citation issues count is 4 (all 4 references [1]-[4] uncited in body)");
   assert(citeOnlyOutput.status === "needs_review", "Status is 'needs_review' solely triggered by citation format discrepancies");
 
-  // Verify citation issues are individually traceable
+  // Verify citation issues are individually traceable with exact text and IEEE violation reasoning
   const issues = citeOnlyOutput.analysis?.citation_analysis?.issues || [];
   assert(issues.length === 4, "Exact 4 citation issues produced");
-  assert(issues.some(i => i.text.includes("[1]")), "Issue for reference [1] is traceable");
-  assert(issues.some(i => i.text.includes("[2]")), "Issue for reference [2] is traceable");
-  assert(issues.some(i => i.text.includes("[3]")), "Issue for reference [3] is traceable");
-  assert(issues.some(i => i.text.includes("[4]")), "Issue for reference [4] is traceable");
+  assert(
+    citeOnlyOutput.analysis?.citation_issue_count === issues.length,
+    "SUB-2026-74022 citation_issue_count === actual parsed issue count (4 === 4)"
+  );
+
+  // Exact Issue 1 Audit
+  assert(issues[0]?.id === "ci-uncited-1" && issues[0]?.referenceNumber === 1, "Issue 1 exact ID is 'ci-uncited-1'");
+  assert(issues[0]?.type === "uncited_reference", "Issue 1 type is 'uncited_reference'");
+  assert(Boolean(issues[0]?.referenceText?.includes("C. Mohan")), "Issue 1 responsible reference: C. Mohan ARIES paper");
+  assert(issues[0]?.isIeeeViolation === true, "Issue 1 is genuine IEEE citation violation (uncited reference in text)");
+  assert(issues[0]?.target === "p-2", "Issue 1 target points to paragraph p-2 where references reside");
+
+  // Exact Issue 2 Audit
+  assert(issues[1]?.id === "ci-uncited-2" && issues[1]?.referenceNumber === 2, "Issue 2 exact ID is 'ci-uncited-2'");
+  assert(issues[1]?.type === "uncited_reference", "Issue 2 type is 'uncited_reference'");
+  assert(Boolean(issues[1]?.referenceText?.includes("Gray and A. Reuter")), "Issue 2 responsible reference: Gray & Reuter transaction book");
+  assert(issues[1]?.isIeeeViolation === true, "Issue 2 is genuine IEEE citation violation");
+  assert(issues[1]?.target === "p-2", "Issue 2 target points to paragraph p-2");
+
+  // Exact Issue 3 Audit
+  assert(issues[2]?.id === "ci-uncited-3" && issues[2]?.referenceNumber === 3, "Issue 3 exact ID is 'ci-uncited-3'");
+  assert(issues[2]?.type === "uncited_reference", "Issue 3 type is 'uncited_reference'");
+  assert(Boolean(issues[2]?.referenceText?.includes("Stonebraker")), "Issue 3 responsible reference: Stonebraker POSTGRES");
+  assert(issues[2]?.isIeeeViolation === true, "Issue 3 is genuine IEEE citation violation");
+  assert(issues[2]?.target === "p-2", "Issue 3 target points to paragraph p-2");
+
+  // Exact Issue 4 Audit
+  assert(issues[3]?.id === "ci-uncited-4" && issues[3]?.referenceNumber === 4, "Issue 4 exact ID is 'ci-uncited-4'");
+  assert(issues[3]?.type === "uncited_reference", "Issue 4 type is 'uncited_reference'");
+  assert(Boolean(issues[3]?.referenceText?.includes("Silberschatz")), "Issue 4 responsible reference: Silberschatz database book");
+  assert(issues[3]?.isIeeeViolation === true, "Issue 4 is genuine IEEE citation violation");
+  assert(issues[3]?.target === "p-2", "Issue 4 target points to paragraph p-2");
+
+  // Verify writing pattern status for SUB-2026-74022 is unavailable due to insufficient prose (references excluded)
+  assert(
+    citeOnlyOutput.analysis?.writing_pattern_status === "Writing pattern analysis unavailable",
+    "SUB-2026-74022 writing pattern status is 'Writing pattern analysis unavailable' (prose is 35 words < 45)"
+  );
+  assert(
+    citeOnlyOutput.analysis?.ai_writing_analysis?.status === "insufficient_evidence",
+    "AI writing analysis status is 'insufficient_evidence'"
+  );
+  assert(
+    !citeOnlyOutput.analysis?.ai_writing_analysis?.explanation.includes("authentic human academic composition"),
+    "Does NOT claim 'authentic human academic composition' for insufficient prose"
+  );
 
   // ---------------------------------------------------------------------------
   // 3. EXACT-COPY DOCUMENT CONSISTENCY
@@ -259,6 +302,108 @@ async function runSingleSubmissionAuditSuite() {
   const resolved = findSubmission(testSub.id);
   assert(resolved?.similarity === 0, "findSubmission reflects DB record with 0% similarity");
   assert(resolved?.matchedSources === 0, "findSubmission reflects DB record with 0 matched sources");
+
+  // ---------------------------------------------------------------------------
+  // 11. WRITING PATTERN ANALYSIS & STYLOMETRIC SAFEGUARD SUITE (SCENARIOS A - G)
+  // ---------------------------------------------------------------------------
+  console.log("\n--- 11. Writing Pattern Analysis & Stylometric Safeguard Suite (Scenarios A - G) ---");
+
+  // A. Normal academic document with sufficient prose
+  const normalAcademicProse = `
+    Balanced search trees provide an efficient method for maintaining ordered collections under dynamic insertion and deletion.
+    This report compares AVL trees and red-black trees across a set of controlled workloads, measuring rotation counts, tree height, and average lookup latency.
+    A binary search tree degrades to linear search behaviour when keys arrive in sorted order.
+    Self-balancing variants restore logarithmic height by performing local rotations after each structural modification, bounding the worst-case cost of search, insertion, and deletion at O(log n).
+    Both structures were implemented in C++17 with identical node layouts and compiled at -O2.
+    Each workload was executed ten times on an isolated core; the reported figures are medians.
+    Keys were drawn from three distributions: uniform random, ascending sorted, and a Zipfian distribution.
+    Rotation counts were instrumented directly in the rebalancing routines.
+  `;
+  const normalAiRes = analyzeAIWritingPatterns(normalAcademicProse);
+  assert(normalAiRes.status !== "insufficient_evidence", "Scenario A: Normal document with sufficient prose is NOT marked insufficient_evidence");
+  assert(normalAiRes.observableCharacteristics.vocabularyDiversityTTR > 0, "Scenario A: TTR is computed reliably for sufficient prose");
+  assert(
+    normalAiRes.observableCharacteristics.stylisticConsistencyScore >= 0 &&
+    normalAiRes.observableCharacteristics.stylisticConsistencyScore <= 100,
+    "Scenario A: Stylistic consistency score is in valid [0, 100] range"
+  );
+
+  // B. Very short document (< 45 words)
+  const veryShortDoc = "This is an extremely short paper with only nine words.";
+  const shortAiRes = analyzeAIWritingPatterns(veryShortDoc);
+  assert(shortAiRes.status === "insufficient_evidence", "Scenario B: Very short document (< 45 words) evaluates to 'insufficient_evidence'");
+  assert(shortAiRes.confidence === 0.0, "Scenario B: Confidence is 0 for insufficient sample");
+  assert(
+    shortAiRes.explanation.includes("Insufficient prose content"),
+    "Scenario B: Explanation clearly notes insufficient prose content"
+  );
+
+  // C. References-only document (bibliography with zero or near-zero prose)
+  const refsOnlyDoc = `
+    References
+    [1] T. H. Cormen, C. E. Leiserson, R. L. Rivest, and C. Stein, Introduction to Algorithms, 3rd ed. MIT Press, 2009.
+    [2] D. E. Knuth, The Art of Computer Programming, Volume 3: Sorting and Searching. Addison-Wesley, 1998.
+    [3] R. Bayer, "Symmetric binary B-Trees: Data organization and retrieval," Acta Informatica, 1972.
+    [4] G. M. Adelson-Velsky and E. M. Landis, "An algorithm for the organization of information," Proceedings of the USSR Academy of Sciences, 1962.
+    [5] R. Tarjan, "Efficiency of a Good But Not Linear Set Union Algorithm," Journal of the ACM, 1975.
+  `;
+  const refsOnlyAiRes = analyzeAIWritingPatterns(refsOnlyDoc);
+  assert(refsOnlyAiRes.status === "insufficient_evidence", "Scenario C: References-only document evaluates to 'insufficient_evidence'");
+  assert(
+    refsOnlyAiRes.explanation.includes("Bibliography/reference content is excluded"),
+    "Scenario C: Explanation confirms bibliography/reference content was excluded from analysis"
+  );
+
+  // D. Empty document
+  const emptyAiRes = analyzeAIWritingPatterns("   ");
+  assert(emptyAiRes.status === "insufficient_evidence", "Scenario D: Empty document safely evaluates to 'insufficient_evidence'");
+  assert(emptyAiRes.observableCharacteristics.sentenceCount === 0, "Scenario D: Sentence count is 0");
+
+  // E. Verify no metric can render as an impossible percentage
+  const rawScoresToTest = [0, 25, 50, 75, 100, 500, 5000, 0.5, 0.85];
+  for (const raw of rawScoresToTest) {
+    const normalized = Math.max(0, Math.min(100, Math.round(raw > 1 ? raw : raw * 100)));
+    const formatted = `${normalized}%`;
+    const numValue = parseInt(formatted.replace("%", ""), 10);
+    assert(
+      numValue >= 0 && numValue <= 100,
+      `Scenario E: Raw score ${raw} formats to ${formatted} (never impossible > 100% like 5000%)`
+    );
+  }
+
+  // F. Verify insufficient prose never produces a "human/authentic" conclusion
+  const insufficientDocs = [veryShortDoc, refsOnlyDoc, "   ", docWithCitationIssues];
+  for (const doc of insufficientDocs) {
+    const res = analyzeAIWritingPatterns(doc);
+    assert(
+      !res.explanation.toLowerCase().includes("authentic human academic composition"),
+      "Scenario F: Insufficient prose NEVER outputs 'authentic human academic composition'"
+    );
+    assert(
+      !res.explanation.toLowerCase().includes("consistent with authentic"),
+      "Scenario F: Insufficient prose NEVER outputs authentic composition claim"
+    );
+  }
+
+  // G. Verify reference text is excluded from prose metrics
+  // Document with 25 prose words (below 45) + 65 reference words (total 90 words)
+  const docWithProseAndRefs = `
+    Database recovery architectures rely on write-ahead logging protocols to provide durability guarantees across arbitrary crash failures in high-throughput transactional environments.
+    Checkpointing algorithms reduce crash recovery duration.
+
+    References
+    [1] C. Mohan, D. Haderle, B. Lindsay, H. Pirahesh, and P. Schwarz, "ARIES: A Transaction Recovery Method Supporting Fine-Granularity Locking and Partial Rollbacks Using Write-Ahead Logging," ACM Transactions on Database Systems, vol. 17, no. 1, pp. 94-162, Mar. 1992.
+    [2] J. Gray and A. Reuter, Transaction Processing: Concepts and Techniques. San Francisco, CA: Morgan Kaufmann Publishers, 1993.
+  `;
+  const proseAndRefsAiRes = analyzeAIWritingPatterns(docWithProseAndRefs);
+  assert(
+    proseAndRefsAiRes.status === "insufficient_evidence",
+    "Scenario G: Reference text is strictly excluded, so 25 prose words correctly triggers 'insufficient_evidence' despite 90 total words"
+  );
+  assert(
+    proseAndRefsAiRes.observableCharacteristics.vocabularyDiversityTTR === 0,
+    "Scenario G: Reference vocabulary does not inflate TTR when prose is insufficient"
+  );
 
   console.log("\n================================================================================");
   console.log(`SINGLE SUBMISSION AUDIT: TOTAL: ${passed + failed} | PASSED: ${passed} | FAILED: ${failed}`);

@@ -143,6 +143,7 @@ export interface DocumentRecord {
   extracted_text: string;
   page_count: number;
   word_count?: number | undefined;
+  prose_word_count?: number | undefined;
   created_at: string;
 }
 
@@ -178,6 +179,27 @@ export interface AlignedPassage {
   is_common_phrase?: boolean | undefined;
 }
 
+export interface CitationIssue {
+  id: string;
+  type: "uncited_reference" | "missing_citation" | "formatting" | "numbering_gap";
+  severity: "potential_issue" | "detected" | "unable_to_verify";
+  text: string;
+  target?: string | undefined;
+  referenceNumber?: number | undefined;
+  referenceText?: string | undefined;
+  reason?: string | undefined;
+  isIeeeViolation?: boolean | undefined;
+}
+
+export interface CitationAnalysisResult {
+  style: "IEEE" | "APA" | "ACM";
+  totalReferencesCount: number;
+  inTextCitationsCount: number;
+  uniqueInTextCited: number[];
+  bibliographyNumbers: number[];
+  issues: CitationIssue[];
+}
+
 export interface Analysis {
   id: string;
   submission_id: string;
@@ -195,6 +217,9 @@ export interface Analysis {
   transparent_breakdown?: TransparentEvidenceBreakdown | undefined;
   passages?: AlignedPassage[] | undefined;
   structural_similarity_percentage?: number | undefined;
+  citation_analysis?: CitationAnalysisResult | undefined;
+  ai_writing_analysis?: AIWritingAnalysisResult | undefined;
+  student_comparisons?: StudentComparisonResult[] | undefined;
 }
 
 export interface SimilarityMatch {
@@ -350,7 +375,7 @@ export interface AnalysisResult {
   sources: MatchedSourceSummary[];
   passages: AlignedPassage[];
   studentComparisons: StudentComparisonResult[];
-  citations?: any;
+  citations?: CitationAnalysisResult | undefined;
   structuralEvidence: StructuralEvidenceItem;
   aiWritingAnalysis: AIWritingAnalysisResult;
   evidenceSummary: string[];

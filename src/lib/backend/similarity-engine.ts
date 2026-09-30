@@ -797,7 +797,7 @@ export function runSimilarityAnalysis(
   const studentComparisons = compareAgainstCohort(cleanText, peerSubmissions, config);
 
   // 11. AI Writing Pattern Analysis (Part F)
-  const aiWritingAnalysis = analyzeAIWritingPatterns(cleanText);
+  const aiWritingAnalysis = analyzeAIWritingPatterns(effectiveText);
 
   // 12. Transparent breakdown & Evidence summaries
   const evidenceSummary: string[] = [];

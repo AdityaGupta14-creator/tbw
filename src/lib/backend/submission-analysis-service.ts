@@ -18,6 +18,7 @@ import {
 } from "./similarity/types";
 import { analyzeIeeeCitations, type CitationAnalysisResult } from "./citation-engine";
 import { analyzeAIWritingPatterns, type AIWritingAnalysisResult } from "./ai-writing-analysis";
+import { separateReferencesSection } from "./similarity/technical-vocabulary";
 import { InternalStudentCorpusProvider } from "./similarity/internal-student-provider";
 import { LocalReferenceCorpusProvider } from "./similarity/local-reference-corpus";
 import { PublicWebSearchProvider } from "./similarity/public-web-provider";
@@ -63,6 +64,7 @@ export interface SubmissionProcessingOutput {
     extractedText: string;
     pageCount: number;
     wordCount: number;
+    proseWordCount?: number | undefined;
     paragraphs: { id: string; heading?: string | undefined; text: string }[];
   };
   analysis?: {
@@ -252,6 +254,7 @@ export async function processSubmissionDocument(
       extractedText,
       {
         excludeSubmissionId: params.submissionId,
+        excludeSubmissionIds: [params.submissionId, params.submissionCode].filter(Boolean) as string[],
         courseId: params.courseId,
         institutionId: params.institutionId || "a0000000-0000-0000-0000-000000000001",
         userRole: params.userRole || "faculty",
@@ -377,6 +380,7 @@ export async function processSubmissionDocument(
         extractedText,
         pageCount,
         wordCount,
+        proseWordCount: separateReferencesSection(extractedText).bodyText.split(/\s+/).filter(Boolean).length,
         paragraphs,
       },
       analysis: {
@@ -388,7 +392,9 @@ export async function processSubmissionDocument(
         student_overlap_percentage: studentOverlap,
         citation_issue_count: citeResult.issues.length,
         writing_pattern_status:
-          aiWritingResult.status === "review_recommended"
+          aiWritingResult.status === "insufficient_evidence"
+            ? "Writing pattern analysis unavailable"
+            : aiWritingResult.status === "review_recommended"
             ? "Review Recommended"
             : maxSourceOverlap > 25
             ? "Requires Review"
