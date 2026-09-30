@@ -27,6 +27,7 @@
 
 import { db } from "../db";
 import { verityApi } from "../../../services/verity-api";
+import { supabase, isSupabaseConfigured } from "../../../lib/supabase";
 import {
   processSubmissionDocument,
   validateDocumentFile,
@@ -168,13 +169,13 @@ async function runEndToEndIntegrationTests() {
     const submission = await verityApi.submissions.submit({
       assignmentId: "asg-301-02",
       file,
-      studentName: "Aditya Gupta",
+      studentName: "Riya Sharma",
       studentRoll: "22CSE057",
     });
     createdSubmissionId = submission.id;
     assert(Boolean(submission.id), "Scenario F: Submission created with unique ID");
     assert(submission.submission_code.startsWith("SUB-2026-"), "Scenario F: Official institutional receipt generated");
-    assert(submission.student_name === "Aditya Gupta", "Scenario F: Student metadata associated");
+    assert(submission.student_name === "Riya Sharma", "Scenario F: Student metadata associated");
   }
 
   // --- Scenario G: Processing State ---
@@ -528,6 +529,13 @@ async function runEndToEndIntegrationTests() {
   console.log("\n================================================================================");
   console.log(`  STEP 7 INTEGRATION TESTS: TOTAL: ${passedCount + failedCount} | PASSED: ${passedCount} | FAILED: ${failedCount}`);
   console.log("================================================================================");
+
+  // Clean up transient test submission from database
+  if (createdSubmissionId && isSupabaseConfigured()) {
+    try {
+      await supabase.from("submissions").delete().eq("id", createdSubmissionId);
+    } catch {}
+  }
 
   if (failedCount > 0) {
     process.exit(1);

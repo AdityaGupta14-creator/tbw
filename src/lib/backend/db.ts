@@ -2123,10 +2123,10 @@ class DatabaseManager {
   // --- Faculty Dashboard Aggregations ---
   public getFacultyDashboardStats() {
     const totalAssignments = this.state.assignments.length;
-    const totalSubmissions = 426 + this.state.submissions.length - 3;
-    const pendingReview = this.state.submissions.filter((s) => s.status === "needs_review").length + 12;
-    const highSimilarity = this.state.submissions.filter((s) => (s.similarity_percentage || 0) >= 30).length + 5;
-    const citationIssues = this.state.submissions.reduce((acc, s) => acc + (s.citation_issue_count || 0), 0) + 16;
+    const totalSubmissions = this.state.submissions.length;
+    const pendingReview = this.state.submissions.filter((s) => s.status === "needs_review").length;
+    const highSimilarity = this.state.submissions.filter((s) => (s.similarity_percentage || 0) >= 30).length;
+    const citationIssues = this.state.submissions.reduce((acc, s) => acc + (s.citation_issue_count || 0), 0);
     return [
       { label: "Assignments", value: String(totalAssignments) },
       { label: "Submissions", value: String(totalSubmissions) },

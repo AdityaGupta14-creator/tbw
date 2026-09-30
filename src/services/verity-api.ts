@@ -308,7 +308,7 @@ export const verityApi = {
         try {
           let query = supabase
             .from("submissions")
-            .select("*, document:documents(*), analysis:analyses(*)")
+            .select("*, student:profiles!student_id(full_name, roll_number), document:documents(*), analysis:analyses(*)")
             .order("submitted_at", { ascending: false });
 
           if (filters?.courseCode && filters.courseCode !== "All courses") {
@@ -325,7 +325,11 @@ export const verityApi = {
 
           const { data, error } = await query;
           if (!error && data && data.length > 0) {
-            return data as Submission[];
+            return data.map((sub: any) => ({
+              ...sub,
+              student_name: sub.student?.full_name || sub.student_name || "Student",
+              student_roll: sub.student?.roll_number || sub.student_roll || "22CSE",
+            })) as Submission[];
           }
         } catch (e) {
           console.warn("Supabase submissions.list fallback:", e);
@@ -340,7 +344,7 @@ export const verityApi = {
           let query = supabase
             .from("submissions")
             .select(
-              "*, document:documents(*), analysis:analyses(*, matches:similarity_matches(*)), feedback:feedback(*), review:submission_reviews(*), review_audit:review_audit_log(*)"
+              "*, student:profiles!student_id(full_name, roll_number), document:documents(*), analysis:analyses(*, matches:similarity_matches(*)), feedback:feedback(*), review:submission_reviews(*), review_audit:review_audit_log(*)"
             );
 
           if (isUuid(id)) {
@@ -353,7 +357,13 @@ export const verityApi = {
           const localExisting = db.getSubmissionById(id);
           if (!error && data) {
             const doc = Array.isArray(data.document) ? data.document[0] : data.document;
-            const ana = Array.isArray(data.analysis) ? data.analysis[0] : data.analysis;
+            const rawAna = Array.isArray(data.analysis) ? data.analysis[0] : data.analysis;
+            const ana = rawAna ? {
+              ...rawAna,
+              ai_writing_analysis: rawAna.ai_writing_analysis || rawAna.evidence_breakdown?.ai_writing_analysis,
+              student_comparisons: rawAna.student_comparisons || rawAna.evidence_breakdown?.student_comparisons,
+              transparent_breakdown: rawAna.transparent_breakdown || rawAna.evidence_breakdown?.transparent_breakdown,
+            } : null;
             const fb = Array.isArray(data.feedback)
               ? data.feedback
               : data.feedback
@@ -368,7 +378,8 @@ export const verityApi = {
 
             const completeSub: Submission = {
               ...(data as any),
-              student_name: data.student_name || localExisting?.student_name,
+              student_name: data.student?.full_name || data.student_name || localExisting?.student_name,
+              student_roll: data.student?.roll_number || data.student_roll || localExisting?.student_roll,
               document: doc || localExisting?.document || null,
               analysis: (ana && ana.status) ? ana : (localExisting?.analysis || null),
               feedback: fb.length > 0 ? fb : (localExisting?.feedback || []),
@@ -448,17 +459,30 @@ export const verityApi = {
       let studentName = params.studentName || "Riya Sharma";
       let studentRoll = params.studentRoll || "22CSE057";
 
-      if (isSupabaseConfigured() && params.studentRoll) {
+      if (isSupabaseConfigured()) {
         try {
-          const { data: st } = await supabase
-            .from("profiles")
-            .select("id, full_name, roll_number")
-            .eq("roll_number", params.studentRoll)
-            .maybeSingle();
-          if (st) {
-            studentId = st.id;
-            studentName = params.studentName || st.full_name || studentName;
-            studentRoll = st.roll_number || studentRoll;
+          if (params.studentRoll) {
+            const { data: st } = await supabase
+              .from("profiles")
+              .select("id, full_name, roll_number")
+              .eq("roll_number", params.studentRoll)
+              .maybeSingle();
+            if (st) {
+              studentId = st.id;
+              studentName = params.studentName || st.full_name || studentName;
+              studentRoll = st.roll_number || studentRoll;
+            }
+          } else if (params.studentName) {
+            const { data: st } = await supabase
+              .from("profiles")
+              .select("id, full_name, roll_number")
+              .ilike("full_name", `%${params.studentName}%`)
+              .maybeSingle();
+            if (st) {
+              studentId = st.id;
+              studentName = st.full_name || studentName;
+              studentRoll = st.roll_number || studentRoll;
+            }
           }
         } catch (e) {
           console.warn("Student profile resolution error:", e);
@@ -563,12 +587,14 @@ export const verityApi = {
                   citation_issue_count: output.analysis.citation_issue_count,
                   writing_pattern_status: output.analysis.writing_pattern_status,
                   structural_similarity_percentage: output.analysis.structural_similarity_percentage,
-                  evidence_breakdown: output.analysis.evidence_breakdown,
+                  evidence_breakdown: {
+                    ...(output.analysis.evidence_breakdown || {}),
+                    ai_writing_analysis: output.analysis.ai_writing_analysis,
+                    student_comparisons: output.analysis.student_comparisons,
+                    transparent_breakdown: output.analysis.transparent_breakdown,
+                  },
                   passages: output.analysis.passages,
                   citation_analysis: output.analysis.citation_analysis,
-                  ai_writing_analysis: output.analysis.ai_writing_analysis,
-                  student_comparisons: output.analysis.student_comparisons,
-                  transparent_breakdown: output.analysis.transparent_breakdown,
                   completed_at: output.analysis.completed_at,
                 },
                 { onConflict: "submission_id" }
@@ -949,20 +975,32 @@ export const verityApi = {
             .select("*", { count: "exact", head: true })
             .gte("similarity_percentage", 30);
 
+          const { data: citationData } = await supabase
+            .from("submissions")
+            .select("citation_issue_count");
+          const totalCitationIssues = (citationData || []).reduce(
+            (acc, s) => acc + (s.citation_issue_count || 0),
+            0
+          );
+
           return [
-            { label: "Assignments", value: String(18 + Math.max(0, (asgCount || 3) - 3)) },
-            { label: "Submissions", value: String(426 + (subCount || 3) - 3) },
+            { label: "Assignments", value: String(asgCount ?? 0) },
+            { label: "Submissions", value: String(subCount ?? 0) },
             {
               label: "Pending Review",
-              value: String((reviewCount || 2) + 12),
+              value: String(reviewCount ?? 0),
               tone: "warning" as const,
             },
             {
               label: "High Similarity",
-              value: String((highSimCount || 1) + 5),
+              value: String(highSimCount ?? 0),
               tone: "danger" as const,
             },
-            { label: "Citation Issues", value: "18", tone: "warning" as const },
+            {
+              label: "Citation Issues",
+              value: String(totalCitationIssues),
+              tone: "warning" as const,
+            },
           ];
         } catch (e) {
           console.warn("Supabase dashboard.getStats fallback:", e);

@@ -7,9 +7,63 @@ import { StatBar, type Stat } from "@/components/stat-bar";
 import { TableShell, Th, Td, Tr } from "@/components/data-table";
 import { StatusBadge, SimilarityValue } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import { attentionItems, dashboardStats as defaultStats, submissions as defaultSubmissions } from "@/lib/mock-data";
 import { verityApi } from "@/services/verity-api";
 import { formatInstitutionalDateTime, formatInstitutionalDate } from "@/lib/formatters";
+
+interface AttentionItem {
+  text: string;
+  action: string;
+  to: string;
+}
+
+function computeAttentionItems(subs: any[]): AttentionItem[] {
+  const items: AttentionItem[] = [];
+  const highSim = subs.filter((s) => (s.similarity_percentage ?? 0) >= 30);
+  if (highSim.length > 0) {
+    items.push({
+      text: `${highSim.length} submission${highSim.length > 1 ? "s" : ""} have substantial similarity (≥ 30%)`,
+      action: "Review",
+      to: "/submissions",
+    });
+  }
+
+  const citationIssues = subs.filter((s) => (s.citation_issue_count ?? 0) > 0);
+  if (citationIssues.length > 0) {
+    items.push({
+      text: `${citationIssues.length} submission${citationIssues.length > 1 ? "s" : ""} flagged for citation issues`,
+      action: "Review",
+      to: "/submissions",
+    });
+  }
+
+  const studentOverlap = subs.filter((s) => (s.student_overlap_percentage ?? 0) >= 20);
+  if (studentOverlap.length > 0) {
+    items.push({
+      text: `${studentOverlap.length} submission${studentOverlap.length > 1 ? "s" : ""} have significant peer student overlap`,
+      action: "Compare",
+      to: "/compare",
+    });
+  }
+
+  const pending = subs.filter((s) => s.status === "needs_review");
+  if (pending.length > 0) {
+    items.push({
+      text: `${pending.length} submission${pending.length > 1 ? "s" : ""} awaiting faculty review`,
+      action: "Review",
+      to: "/submissions",
+    });
+  }
+
+  if (items.length === 0) {
+    items.push({
+      text: "All submissions are currently reviewed with no pending flags",
+      action: "View",
+      to: "/submissions",
+    });
+  }
+
+  return items;
+}
 
 export const Route = createFileRoute("/dashboard")({
   loader: async () => {
@@ -21,7 +75,7 @@ export const Route = createFileRoute("/dashboard")({
       ]);
       return { stats, subs, asgs };
     } catch {
-      return { stats: defaultStats, subs: [], asgs: [] };
+      return { stats: [], subs: [], asgs: [] };
     }
   },
   head: () => ({
@@ -44,10 +98,10 @@ export const Route = createFileRoute("/dashboard")({
 function Dashboard() {
   const loaderData = Route.useLoaderData();
   const navigate = useNavigate();
-  const [stats, setStats] = useState<Stat[]>(loaderData?.stats?.length ? loaderData.stats : defaultStats);
+  const [stats, setStats] = useState<Stat[]>(loaderData?.stats ?? []);
   const [items, setItems] = useState<any[]>(() => {
     if (loaderData?.subs && loaderData.subs.length > 0) {
-      return loaderData.subs.slice(0, 7).map((s: any) => ({
+      return loaderData.subs.slice(0, 10).map((s: any) => ({
         id: s.submission_code || s.id,
         student: s.student_name || "Student",
         roll: s.student_roll || "22CSE",
@@ -59,17 +113,13 @@ function Dashboard() {
         status: s.status === "needs_review" ? "review" : s.status === "reviewed" ? "reviewed" : s.status === "processing" ? "pending" : "review",
       }));
     }
-    return defaultSubmissions;
+    return [];
   });
   const [assignmentsList, setAssignmentsList] = useState<any[]>(loaderData?.asgs ?? []);
-  const [queueCourses, setQueueCourses] = useState<[string, string, number][]>([
-    ["ENG-CSE-301", "Data Structures", 3],
-    ["ENG-CSE-305", "Database Management Systems", 5],
-    ["ENG-CSE-312", "Computer Networks", 2],
-    ["ENG-EEE-204", "Digital Electronics", 2],
-    ["ENG-ME-210", "Engineering Mechanics", 2],
-  ]);
-
+  const [queueCourses, setQueueCourses] = useState<[string, string, number][]>([]);
+  const [attentionList, setAttentionList] = useState<AttentionItem[]>(() =>
+    computeAttentionItems(loaderData?.subs ?? [])
+  );
 
   useEffect(() => {
     // Load real aggregated stats
@@ -84,10 +134,10 @@ function Dashboard() {
       }
     });
 
-    // Load real submissions
+    // Load real submissions & update dynamic attention items
     verityApi.submissions.list().then((dbList) => {
       if (dbList && dbList.length > 0) {
-        const mapped = dbList.slice(0, 7).map((s) => ({
+        const mapped = dbList.slice(0, 10).map((s) => ({
           id: s.submission_code || s.id,
           student: s.student_name || "Student",
           roll: s.student_roll || "22CSE",
@@ -99,6 +149,7 @@ function Dashboard() {
           status: s.status === "needs_review" ? "review" : s.status === "reviewed" ? "reviewed" : s.status === "processing" ? "pending" : "review",
         }));
         setItems(mapped);
+        setAttentionList(computeAttentionItems(dbList));
       }
     });
 
@@ -108,7 +159,7 @@ function Dashboard() {
         verityApi.submissions.list().then((subs) => {
           const courseList: [string, string, number][] = crs.slice(0, 5).map((c) => {
             const pending = subs.filter((s) => s.course_code === c.course_code && s.status === "needs_review").length;
-            return [c.course_code, c.name, pending > 0 ? pending : 2];
+            return [c.course_code, c.name, pending];
           });
           setQueueCourses(courseList);
         });
@@ -270,7 +321,7 @@ function Dashboard() {
               <span id="attention-heading">Requires Review</span>
             </SectionTitle>
             <ul className="mt-2 divide-y divide-border rounded-md border border-border bg-card">
-              {attentionItems.map((item) => (
+              {attentionList.map((item) => (
                 <li key={item.text} className="flex items-start justify-between gap-3 px-3 py-3">
                   <p className="text-[13px] leading-snug text-foreground">{item.text}</p>
                   <Button asChild size="sm" variant="outline" className="h-7 shrink-0 px-2 text-[12px]">
