@@ -4,10 +4,13 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowLeft,
+  BookMarked,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Clock,
   Download,
   ExternalLink,
@@ -16,6 +19,7 @@ import {
   FileText,
   GitCompare,
   HelpCircle,
+  LayoutDashboard,
   Maximize2,
   MessageSquare,
   Minus,
@@ -65,6 +69,12 @@ import type {
   UserRole,
 } from "@/types/database";
 import { formatInstitutionalDateTime } from "@/lib/formatters";
+import { SubmissionOverviewTab } from "@/components/submission-tabs/submission-overview-tab";
+import { SubmissionEvidenceTab } from "@/components/submission-tabs/submission-evidence-tab";
+import { SubmissionDocumentTab } from "@/components/submission-tabs/submission-document-tab";
+import { SubmissionCitationsTab } from "@/components/submission-tabs/submission-citations-tab";
+import { SubmissionReviewTab } from "@/components/submission-tabs/submission-review-tab";
+import { SubmissionReportTab } from "@/components/submission-tabs/submission-report-tab";
 
 const fallbackSubmission = submissions[0]!;
 
@@ -152,8 +162,9 @@ function SubmissionReviewPage() {
     sourceUrl?: string | undefined;
   } | null>(null);
 
-  // Active panel tab
-  const [activeTab, setActiveTab] = useState("similarity");
+  // Active main tab
+  const [activeTab, setActiveTab] = useState<"overview" | "evidence" | "document" | "citations" | "review" | "report">("overview");
+  const [technicalDetailsOpen, setTechnicalDetailsOpen] = useState(false);
 
   const isDemoSubmission =
     submission.id === "SUB-2026-09124" ||
@@ -536,6 +547,7 @@ function SubmissionReviewPage() {
   };
 
   const jumpToParagraph = (pId: string, pageIndex = 0) => {
+    setActiveTab("document");
     setCurrentPage(pageIndex);
     setTimeout(() => {
       const el = document.getElementById(pId);
@@ -544,7 +556,7 @@ function SubmissionReviewPage() {
         el.classList.add("ring-2", "ring-brand");
         setTimeout(() => el.classList.remove("ring-2", "ring-brand"), 2200);
       }
-    }, 100);
+    }, 120);
   };
 
   const handleDownloadPdf = async () => {
@@ -679,6 +691,25 @@ function SubmissionReviewPage() {
     }
   };
 
+  const handleRecordPassageReviewDirect = async (passageId: string, status: ReviewedPassageStatus) => {
+    try {
+      const targetId = submission.id || submissionId;
+      const updated = await verityApi.reviews.recordPassageReview(
+        targetId,
+        passageId,
+        status,
+        passageNotesText.trim() || undefined
+      );
+      setReviewRecord(updated);
+      const trail = await verityApi.reviews.getAuditTrail(targetId);
+      setAuditTrail(trail);
+      setPassageNotesText("");
+      toast.success(`Passage marked as: ${status.replace(/_/g, " ")}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to record passage review.");
+    }
+  };
+
   return (
     <AppShell>
       {/* Top Breadcrumb & Action bar */}
@@ -759,22 +790,6 @@ function SubmissionReviewPage() {
             variant="outline"
             size="sm"
             className="h-8 text-[12px]"
-            onClick={() => setActiveTab("review")}
-          >
-            <Scale className="mr-1.5 size-3.5 text-brand" /> Review Workspace
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-[12px]"
-            onClick={() => setReportModalOpen(true)}
-          >
-            <Printer className="mr-1.5 size-3.5" /> Official Report
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-[12px]"
             asChild
           >
             <Link to="/compare">
@@ -783,1314 +798,217 @@ function SubmissionReviewPage() {
           </Button>
           <Button
             size="sm"
-            className="h-8 text-[12px]"
-            onClick={() => {
-              setActiveTab("feedback");
-              const el = document.getElementById("feedback-tab-content");
-              if (el) el.scrollIntoView({ behavior: "smooth" });
-            }}
+            className="h-8 text-[12px] bg-brand text-white hover:bg-brand/90 gap-1.5"
+            onClick={handleDownloadPdf}
           >
-            <MessageSquare className="mr-1.5 size-3.5" /> Add Feedback
+            <Download className="size-3.5" /> Download Faculty Report
           </Button>
         </div>
       </div>
 
-      {/* Review Summary Bar */}
-      <div className="mt-3.5 grid grid-cols-2 gap-2 rounded-md border border-border bg-card p-3 sm:grid-cols-5">
-        <div className="border-r border-border pr-3">
-          <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-            Similarity Index
-          </span>
-          <div className="mt-0.5 flex items-baseline gap-2">
-            <span
-              className={`num text-2xl font-bold ${
-                submission.similarity >= 25
-                  ? "text-danger"
-                  : submission.similarity >= 10
-                  ? "text-warning-foreground"
-                  : "text-foreground"
-              }`}
-            >
-              {submission.similarity}%
-            </span>
-            <span className="text-[11px] text-muted-foreground">Overall</span>
-          </div>
-        </div>
+      {/* 6-Tab Faculty Navigation Bar: Overview | Evidence | Document | Citations | Review | Report */}
+      <div className="mt-4 border-b border-border bg-card/60 backdrop-blur-xs px-2 pt-2 rounded-t-lg">
+        <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab("overview")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-md border-b-2 transition-all ${
+              activeTab === "overview"
+                ? "border-brand text-brand bg-background shadow-xs font-bold"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
+            }`}
+          >
+            <LayoutDashboard className="size-3.5" />
+            Overview
+          </button>
 
-        <div className="border-r border-border px-3">
-          <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-            Matched Sources
-          </span>
-          <div className="mt-0.5 flex items-baseline gap-2">
-            <span className="num text-2xl font-semibold text-foreground">{submission.matchedSources}</span>
-            <span className="text-[11px] text-muted-foreground">Primary</span>
-          </div>
-        </div>
-
-        <div className="border-r border-border px-3">
-          <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-            Citation Issues
-          </span>
-          <div className="mt-0.5 flex items-baseline gap-2">
-            <span className="num text-2xl font-semibold text-warning-foreground">
-              {submission.citationIssues}
-            </span>
-            <span className="text-[11px] text-muted-foreground">IEEE Check</span>
-          </div>
-        </div>
-
-        <div className="border-r border-border px-3">
-          <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-            Revision Drafts
-          </span>
-          <div className="mt-0.5 flex items-baseline gap-2">
-            <span className="num text-2xl font-semibold text-foreground">{submission.drafts}</span>
-            <span className="text-[11px] text-muted-foreground">Saved</span>
-          </div>
-        </div>
-
-        <div className="pl-3">
-          <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-            Integrity Status
-          </span>
-          <div className="mt-1">
-            {submission.status === "reviewed" ? (
-              <span className="inline-flex items-center gap-1 rounded-sm border border-success/30 bg-success-soft px-2 py-0.5 text-[11px] font-medium text-success">
-                <CheckCircle2 className="size-3" /> Reviewed & Cleared
-              </span>
-            ) : submission.similarity >= 25 ? (
-              <span className="inline-flex items-center gap-1 rounded-sm border border-danger/30 bg-danger-soft px-2 py-0.5 text-[11px] font-medium text-danger">
-                <AlertTriangle className="size-3" /> Requires Faculty Review (High Overlap)
-              </span>
-            ) : submission.citationIssues > 0 ? (
-              <span className="inline-flex items-center gap-1 rounded-sm border border-warning/30 bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning-foreground">
-                <AlertTriangle className="size-3" /> Requires Faculty Review (Citation Issues)
-              </span>
-            ) : activeWpStatus === "Requires Review" ? (
-              <span className="inline-flex items-center gap-1 rounded-sm border border-warning/30 bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning-foreground">
-                <AlertTriangle className="size-3" /> Requires Faculty Review (Writing Anomaly)
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-sm border border-success/30 bg-success-soft px-2 py-0.5 text-[11px] font-medium text-success">
-                <CheckCircle2 className="size-3" /> Automated Check Cleared
+          <button
+            type="button"
+            onClick={() => setActiveTab("evidence")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-md border-b-2 transition-all ${
+              activeTab === "evidence"
+                ? "border-brand text-brand bg-background shadow-xs font-bold"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
+            }`}
+          >
+            <GitCompare className="size-3.5" />
+            Evidence
+            {activePassages.length > 0 && (
+              <span className="num ml-1 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 px-1.5 py-0.2 text-[10px] font-bold">
+                {activePassages.length}
               </span>
             )}
-          </div>
-        </div>
-      </div>
+          </button>
 
-      {/* Academic Integrity Evidence Disclaimer Banner */}
-      <div className="mt-3 rounded-md border border-border bg-muted/30 px-3.5 py-2.5 text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="size-4 shrink-0 text-brand" />
-          <span>
-            <strong>Academic Review Principle:</strong> Similarity indicates textual or semantic overlap. It is evidence for academic review and does not by itself establish plagiarism.
-          </span>
-        </div>
-        <span className="text-[11px] font-mono shrink-0">
-          Corroboration Gate:{" "}
-          <strong className="text-foreground">
-            {submission.similarity === 0 || !activeEvidence || (activeEvidence.strong_percentage === 0 && activeEvidence.moderate_percentage === 0 && activeEvidence.semantic_percentage === 0)
-              ? "NOT APPLICABLE (0% Overlap)"
-              : activeEvidence.strong_percentage >= 15
-              ? "CORROBORATED"
-              : "MODERATE"}
-          </strong>
-        </span>
-      </div>
-
-      {/* Citation Review Notification Banner when 0% similarity */}
-      {submission.similarity === 0 && submission.citationIssues > 0 && (
-        <div className="mt-3 rounded-md border border-amber-300 bg-amber-50/70 p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
-          <AlertTriangle className="size-4 shrink-0 text-amber-700 mt-0.5" />
-          <div>
-            <p className="font-semibold text-amber-950">Review Reason: Citation Verification Required</p>
-            <p className="mt-0.5 text-amber-800 leading-relaxed">
-              Document exhibits 0% textual similarity (no plagiarism or corpus overlap detected). This submission is flagged for faculty review solely due to {submission.citationIssues} citation issue(s) detected during format compliance checking.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Main 70/30 Analysis Workspace */}
-      <div className="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-12">
-        {/* Left Column: 70% (xl:col-span-8) Document Viewer */}
-        <section
-          aria-label="Document viewer"
-          className="rounded-md border border-border bg-card shadow-xs xl:col-span-8"
-        >
-          {/* Document Reader Toolbar */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/40 px-3.5 py-2">
-            <div className="flex items-center gap-1 text-[12px] text-muted-foreground">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                disabled={currentPage === 0}
-                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="size-4" />
-              </Button>
-              <span className="num text-[12px] font-medium text-foreground">
-                Page {currentPage + 1} of {activePages.length}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                disabled={currentPage >= activePages.length - 1}
-                onClick={() => setCurrentPage((p) => Math.min(activePages.length - 1, p + 1))}
-                aria-label="Next page"
-              >
-                <ChevronRight className="size-4" />
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className="flex items-center rounded-sm border border-input bg-background">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  disabled={zoomLevel <= 70}
-                  onClick={() => setZoomLevel((z) => Math.max(70, z - 10))}
-                  aria-label="Zoom out"
-                >
-                  <Minus className="size-3" />
-                </Button>
-                <span className="num px-1.5 text-[11px] font-medium">{zoomLevel}%</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  disabled={zoomLevel >= 150}
-                  onClick={() => setZoomLevel((z) => Math.min(150, z + 10))}
-                  aria-label="Zoom in"
-                >
-                  <Plus className="size-3" />
-                </Button>
-              </div>
-
-              <Button
-                variant={highlightsEnabled ? "secondary" : "outline"}
-                size="sm"
-                className="h-7 px-2 text-[11px]"
-                onClick={() => setHighlightsEnabled(!highlightsEnabled)}
-              >
-                {highlightsEnabled ? "Highlights ON" : "Highlights OFF"}
-              </Button>
-
-              <div className="relative hidden sm:block">
-                <input
-                  type="text"
-                  value={docSearch}
-                  onChange={(e) => setDocSearch(e.target.value)}
-                  placeholder="Find in text..."
-                  className="h-7 w-32 rounded-sm border border-input bg-background pl-6 pr-2 text-[11px] focus:w-44 focus:outline-none transition-all"
-                />
-                <Search className="pointer-events-none absolute top-2 left-1.5 size-3 text-muted-foreground" />
-              </div>
-
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-7 w-7"
-                title="Download original file"
-                onClick={() => toast.info("Downloading original submission (PDF)")}
-              >
-                <Download className="size-3.5" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Floating Selected Source Match Details Modal/Callout */}
-          {selectedMatch && (
-            <div className="border-b border-warning/40 bg-warning-soft px-4 py-2.5 text-[12px] text-warning-foreground transition-all">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-2.5">
-                  <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-foreground uppercase tracking-wide text-[11px]">
-                        Passage Match Identified
-                      </span>
-                      <span className="num rounded-xs bg-card px-1.5 py-0.5 font-bold text-danger text-[11px] border border-border">
-                        {selectedMatch.percent}% overlap
-                      </span>
-                      <span className="num text-muted-foreground text-[11px]">
-                        ({selectedMatch.words} words)
-                      </span>
-                      <span className={`num rounded-xs px-1.5 py-0.5 font-semibold text-[10px] uppercase border ${
-                        selectedMatch.evidenceLevel === "strong"
-                          ? "bg-red-100 text-red-800 border-red-300"
-                          : selectedMatch.evidenceLevel === "moderate"
-                          ? "bg-amber-100 text-amber-800 border-amber-300"
-                          : "bg-blue-100 text-blue-800 border-blue-300"
-                      }`}>
-                        {selectedMatch.evidenceLevel === "strong" ? "Strong Evidence" : selectedMatch.evidenceLevel === "moderate" ? "Moderate Lexical Match" : "Paraphrase Signal"}
-                      </span>
-                    </div>
-
-                    <p className="text-[12px] text-foreground">
-                      Source:{" "}
-                      <span className="font-medium text-brand underline cursor-pointer">
-                        {matchedSources.find((s) => s.id === selectedMatch.sourceId)?.domain || selectedMatch.sourceId || "Academic Repository"}
-                      </span>{" "}
-                      — {matchedSources.find((s) => s.id === selectedMatch.sourceId)?.title || selectedMatch.sourceId}
-                    </p>
-
-                    {selectedMatch.exactSimilarity !== undefined && (
-                      <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-                        <span className="font-medium text-foreground">Signals:</span>
-                        <span>Exact: {selectedMatch.exactSimilarity}%</span>
-                        <span>·</span>
-                        <span>Fuzzy: {selectedMatch.fuzzySimilarity || 0}%</span>
-                        <span>·</span>
-                        <span>Semantic: {selectedMatch.semanticSimilarity || 0}%</span>
-                      </div>
-                    )}
-
-                    {selectedMatch.reasons && selectedMatch.reasons.length > 0 && (
-                      <p className="text-[11px] text-muted-foreground italic">
-                        Why matched: {selectedMatch.reasons.join("; ")}
-                      </p>
-                    )}
-
-                    {selectedMatch.sourceText && (
-                      <div className="mt-1.5 rounded-xs bg-card/85 p-2 border border-border text-[11px]">
-                        <span className="font-semibold text-muted-foreground block text-[10px] uppercase mb-0.5">
-                          Matching Source Passage:
-                        </span>
-                        <p className="italic text-foreground line-clamp-2">{selectedMatch.sourceText}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 px-2 text-[11px] bg-card hover:bg-muted font-medium text-brand"
-                    onClick={() => setEvidenceDialogOpen(true)}
-                  >
-                    <Eye className="mr-1 size-3" /> View Evidence
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 px-2 text-[11px]"
-                    asChild
-                  >
-                    <Link to="/compare">
-                      Compare Full
-                    </Link>
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                    onClick={() => setSelectedMatch(null)}
-                  >
-                    <X className="size-3.5" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Realistic PDF/Engineering Document Canvas */}
-          <div
-            className="overflow-auto bg-muted/20 p-6 md:p-8"
-            style={{ minHeight: "680px" }}
+          <button
+            type="button"
+            onClick={() => setActiveTab("document")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-md border-b-2 transition-all ${
+              activeTab === "document"
+                ? "border-brand text-brand bg-background shadow-xs font-bold"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
+            }`}
           >
-            <div
-              className="mx-auto max-w-[800px] rounded-sm border border-border bg-card p-8 md:p-12 shadow-sm transition-all"
-              style={{
-                transform: `scale(${zoomLevel / 100})`,
-                transformOrigin: "top center",
-              }}
-            >
-              {/* Document Header */}
-              <div className="border-b-2 border-primary/20 pb-5 text-center">
-                <p className="text-[11px] font-bold tracking-[0.2em] text-muted-foreground uppercase">
-                  ABC Institute of Technology · Department of Computer Engineering
-                </p>
-                <h1 className="mt-2 text-xl font-bold tracking-tight text-foreground sm:text-2xl font-serif">
-                  {submission.assignment}
-                </h1>
-                <p className="mt-1 text-[13px] text-muted-foreground">
-                  Academic Coursework & Empirical Integrity Analysis
-                </p>
-                <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-[12px] text-muted-foreground">
-                  <span className="font-medium text-foreground">{submission.student}</span>
-                  <span>·</span>
-                  <span className="num">Roll No: {submission.roll}</span>
-                  <span>·</span>
-                  <span className="num">Course: {submission.courseCode}</span>
-                  <span>·</span>
-                  <span>Receipt: {submission.id}</span>
-                </div>
-              </div>
+            <Eye className="size-3.5" />
+            Document
+          </button>
 
-              {/* Document Pages Content */}
-              <div className="mt-6 space-y-5 text-[14px] leading-relaxed text-foreground">
-                {(activePages[currentPage] ?? activePages[0] ?? []).map((p) => {
-                  const hasMatch = p.match && highlightsEnabled;
-                  const isMatchActive = selectedMatch?.paragraphId === p.id;
-                  const searchHit =
-                    docSearch.trim().length > 1 &&
-                    p.text.toLowerCase().includes(docSearch.toLowerCase());
+          <button
+            type="button"
+            onClick={() => setActiveTab("citations")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-md border-b-2 transition-all ${
+              activeTab === "citations"
+                ? "border-brand text-brand bg-background shadow-xs font-bold"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
+            }`}
+          >
+            <BookMarked className="size-3.5" />
+            Citations
+            {submission.citationIssues > 0 && (
+              <span className="num ml-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 px-1.5 py-0.2 text-[10px] font-bold">
+                {submission.citationIssues}
+              </span>
+            )}
+          </button>
 
-                  return (
-                    <div
-                      key={p.id}
-                      id={p.id}
-                      className={`group relative rounded-sm p-2 transition-colors ${
-                        isMatchActive
-                          ? "bg-amber-100/70 border-l-4 border-amber-600 pl-3"
-                          : searchHit
-                          ? "bg-blue-50 border-l-4 border-blue-500 pl-3"
-                          : "hover:bg-muted/30"
-                      }`}
-                    >
-                      {p.heading && (
-                        <h2 className="mb-2 text-[15px] font-bold text-foreground font-serif tracking-tight">
-                          {p.heading}
-                        </h2>
-                      )}
+          <button
+            type="button"
+            onClick={() => setActiveTab("review")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-md border-b-2 transition-all ${
+              activeTab === "review"
+                ? "border-brand text-brand bg-background shadow-xs font-bold"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
+            }`}
+          >
+            <ShieldCheck className="size-3.5" />
+            Review
+            <span className={`ml-1 rounded-xs px-1.5 py-0.2 text-[9px] uppercase tracking-wider font-bold ${
+              submission.status === "reviewed"
+                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                : "bg-muted text-muted-foreground"
+            }`}>
+              {submission.status === "reviewed" ? "Concluded" : "Action"}
+            </span>
+          </button>
 
-                      <p className="relative">
-                        {hasMatch ? (
-                          <span
-                            onClick={() => {
-                              setSelectedMatch({
-                                sourceId: p.match!.sourceId,
-                                percent: p.match!.percent,
-                                words: p.match!.words,
-                                paragraphId: p.id,
-                                studentText: p.match!.studentText || p.text,
-                                sourceText: p.match!.sourceText,
-                                evidenceLevel: p.match!.evidenceLevel,
-                                reasons: p.match!.reasons,
-                                exactSimilarity: p.match!.exactSimilarity,
-                                fuzzySimilarity: p.match!.fuzzySimilarity,
-                                semanticSimilarity: p.match!.semanticSimilarity,
-                                confidence: p.match!.confidence,
-                                isQuoted: p.match!.isQuoted,
-                                isCommonTechnicalPhrase: p.match!.isCommonTechnicalPhrase,
-                                sourceType: p.match!.sourceType,
-                                sourceTitle: p.match!.sourceTitle,
-                                sourceUrl: p.match!.sourceUrl,
-                              });
-                              setEvidenceDialogOpen(true);
-                            }}
-                            className="cursor-pointer rounded-xs bg-amber-200/60 px-1 py-0.5 text-foreground border-b-2 border-amber-400 hover:bg-amber-300/60 transition-colors"
-                            title={`Click to inspect matched source (${p.match!.percent}%)`}
-                          >
-                            {p.text}
-                            <span className="num ml-1 inline-block rounded-xs bg-amber-600 px-1 text-[9px] font-bold text-white uppercase tracking-tighter align-super">
-                              {p.match!.percent}% overlap
-                            </span>
-                          </span>
-                        ) : (
-                          p.text
-                        )}
-                      </p>
-
-                      {/* Paragraph action hover menu */}
-                      <div className="mt-1 flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          type="button"
-                          className="text-[11px] text-muted-foreground hover:text-brand"
-                          onClick={() => {
-                            setCommentTargetParagraph(p.id);
-                            setActiveTab("feedback");
-                            toast.info(`Ready to annotate paragraph ${p.id}`);
-                          }}
-                        >
-                          + Add Annotation
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Page Footer */}
-              <div className="mt-12 flex items-center justify-between border-t border-border pt-4 text-[11px] text-muted-foreground">
-                <span className="num">Verity Submission Integrity Archive · {submission.id}</span>
-                <span className="num">Page {currentPage + 1} of {activePages.length}</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Right Column: 30% (xl:col-span-4) Sticky Analysis Panel */}
-        <aside
-          aria-label="Analysis panel"
-          className="sticky top-16 space-y-4 xl:col-span-4"
-        >
-          <div className="rounded-md border border-border bg-card shadow-xs">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="border-b border-border px-3 pt-2.5">
-                <TabsList className="grid w-full grid-cols-6 h-8 bg-muted/60 p-0.5 text-[11px]">
-                  <TabsTrigger value="similarity" className="rounded-xs px-1 text-[11px]">
-                    Similarity
-                  </TabsTrigger>
-                  <TabsTrigger value="sources" className="rounded-xs px-1 text-[11px]">
-                    Sources
-                  </TabsTrigger>
-                  <TabsTrigger value="citations" className="rounded-xs px-1 text-[11px]">
-                    Citations
-                  </TabsTrigger>
-                  <TabsTrigger value="review" className="rounded-xs px-1 text-[11px] font-semibold text-brand">
-                    Review
-                  </TabsTrigger>
-                  <TabsTrigger value="history" className="rounded-xs px-1 text-[11px]">
-                    History
-                  </TabsTrigger>
-                  <TabsTrigger value="feedback" className="rounded-xs px-1 text-[11px]">
-                    Feedback
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-
-              {/* TAB 1: SIMILARITY */}
-              <TabsContent value="similarity" className="p-4 space-y-4 m-0">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[12px] font-semibold text-foreground">Overall Similarity</span>
-                    <span className="num text-xl font-bold text-danger">
-                      {liveAnalysis?.similarity_percentage ?? submission.similarity}%
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    Analyzed across peer cohort, institutional library, and reference databases.
-                  </p>
-                </div>
-
-                {/* V2 Multi-Layer Evidence Signals Breakdown */}
-                <div className="space-y-2 rounded-sm border border-border bg-card p-2.5 text-[12px]">
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                    Multi-Layer Evidence Signals
-                  </span>
-                  <div className="space-y-1.5 pt-1">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-foreground flex items-center gap-1.5">
-                          <span className="size-2 rounded-full bg-danger" /> Strong Verbatim Overlap
-                        </span>
-                        <span className="num font-semibold text-danger">
-                          {activeEvidence.strong_percentage}%
-                        </span>
-                      </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-border">
-                        <div
-                          className="h-full bg-danger rounded-full"
-                          style={{ width: `${Math.min(100, ((activeEvidence.strong_percentage || 0) / 30) * 100)}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-0.5">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-foreground flex items-center gap-1.5">
-                          <span className="size-2 rounded-full bg-warning" /> Moderate Lexical Similarity
-                        </span>
-                        <span className="num font-semibold text-warning-foreground">
-                          {activeEvidence.moderate_percentage}%
-                        </span>
-                      </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-border">
-                        <div
-                          className="h-full bg-amber-500 rounded-full"
-                          style={{ width: `${Math.min(100, ((activeEvidence.moderate_percentage || 0) / 30) * 100)}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-0.5">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-foreground flex items-center gap-1.5">
-                          <span className="size-2 rounded-full bg-blue-500" /> Semantic Paraphrasing
-                        </span>
-                        <span className="num font-semibold text-blue-700">
-                          {activeEvidence.semantic_percentage}%
-                        </span>
-                      </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-border">
-                        <div
-                          className="h-full bg-blue-500 rounded-full"
-                          style={{ width: `${Math.min(100, ((activeEvidence.semantic_percentage || 0) / 30) * 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Similarity Breakdown Bar */}
-                <div className="space-y-2 rounded-sm border border-border bg-muted/30 p-2.5 text-[12px]">
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                    Distribution by Source Type
-                  </span>
-                  {activeSourceDistribution.map((item) => (
-                    <div key={item.label} className="space-y-0.5">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-foreground">{item.label}</span>
-                        <span className="num font-semibold">{item.value}%</span>
-                      </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-border">
-                        <div
-                          className="h-full bg-navy rounded-full"
-                          style={{ width: `${Math.min(100, (item.value / 27) * 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Top Matched Passages List */}
-                <div className="space-y-2">
-                  <span className="text-[11px] font-semibold text-foreground uppercase tracking-wide">
-                    Aligned Matching Passages ({activePassages.length})
-                  </span>
-                  <div className="space-y-1.5">
-                    {activePassages.length === 0 ? (
-                      <div className="rounded-sm border border-emerald-200 bg-emerald-50/50 p-3 text-center">
-                        <CheckCircle2 className="mx-auto size-5 text-emerald-600 mb-1" />
-                        <p className="text-[11px] font-semibold text-emerald-800">No Aligned Overlaps</p>
-                        <p className="text-[10px] text-muted-foreground">No significant overlap was detected by the configured analysis engines.</p>
-                      </div>
-                    ) : (
-                      activePassages.map((item: any, idx: number) => {
-                        const isPassage = Boolean(item.student_text);
-                        const title = isPassage ? item.source_name : item.title;
-                        const contribution = isPassage ? item.similarity_percentage : item.contribution;
-                        const level = isPassage ? item.evidence_level : idx === 0 ? "strong" : "moderate";
-
-                        return (
-                          <div
-                            key={item.id || idx}
-                            onClick={() => {
-                              jumpToParagraph(idx % 2 === 0 ? "p-1" : "p-2", 0);
-                              setSelectedMatch({
-                                sourceId: title,
-                                percent: contribution,
-                                words: item.matched_words || 36,
-                                paragraphId: idx % 2 === 0 ? "p-1" : "p-2",
-                                studentText: item.student_text,
-                                sourceText: item.source_text,
-                                evidenceLevel: level,
-                                reasons: item.reasons || ["Contiguous overlap with reference source"],
-                                exactSimilarity: item.exact_similarity,
-                                fuzzySimilarity: item.fuzzy_similarity,
-                                semanticSimilarity: item.semantic_similarity,
-                                confidence: item.confidence ?? 0.88,
-                                isQuoted: item.is_quoted ?? false,
-                                isCommonTechnicalPhrase: item.is_common_technical_phrase ?? false,
-                                sourceType: item.source_type,
-                                sourceTitle: item.source_title || title,
-                                sourceUrl: item.source_url,
-                              });
-                              setEvidenceDialogOpen(true);
-                            }}
-                            className="cursor-pointer rounded-sm border border-border bg-background p-2.5 hover:border-brand/40 hover:bg-accent/40 transition-colors"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="num text-[10px] font-semibold text-muted-foreground uppercase">
-                                    Passage 0{idx + 1}
-                                  </span>
-                                  <span className={`num rounded-xs px-1.5 py-0.2 font-semibold text-[9px] uppercase border ${
-                                    level === "strong"
-                                      ? "bg-red-100 text-red-800 border-red-300"
-                                      : level === "moderate"
-                                      ? "bg-amber-100 text-amber-800 border-amber-300"
-                                      : "bg-blue-100 text-blue-800 border-blue-300"
-                                  }`}>
-                                    {level}
-                                  </span>
-                                </div>
-                                <p className="truncate text-[12px] font-medium text-foreground mt-0.5">
-                                  {title}
-                                </p>
-                                {item.reasons && item.reasons[0] && (
-                                  <p className="truncate text-[11px] text-muted-foreground">
-                                    {item.reasons[0]}
-                                  </p>
-                                )}
-                              </div>
-                              <span className="num shrink-0 rounded-xs bg-amber-100 px-1.5 py-0.5 font-bold text-amber-800 text-[11px]">
-                                {contribution}%
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-
-                {/* Writing Pattern Analysis Indicator Box */}
-                <div className="rounded-sm border border-border bg-card p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[12px] font-semibold text-foreground">
-                      Writing Pattern Analysis
-                    </span>
-                    <span className={`num rounded-xs px-1.5 py-0.5 text-[10px] font-medium ${
-                      isWpUnavailable
-                        ? "bg-muted text-muted-foreground border border-border"
-                        : activeWpStatus === "Requires Review" || activeWpStatus === "Review Recommended"
-                        ? "bg-amber-100 text-amber-800"
-                        : "bg-emerald-100 text-emerald-800"
-                    }`}>
-                      {activeWpStatus}
-                    </span>
-                  </div>
-
-                  {isWpUnavailable ? (
-                    <div className="mt-2.5 rounded-xs border border-border/80 bg-muted/20 p-2.5 space-y-2">
-                      <p className="text-[11px] font-semibold text-foreground">
-                        Writing pattern analysis unavailable
-                      </p>
-                      <p className="text-[10px] leading-relaxed text-muted-foreground">
-                        Insufficient prose content for reliable stylometric analysis. Bibliography/reference content is excluded from this analysis.
-                      </p>
-                      <div className="grid grid-cols-2 gap-2 text-[10px] pt-1 border-t border-border/50">
-                        {activeWpIndicators.map((ind) => (
-                          <div key={ind.label} className="rounded-xs bg-muted/40 p-1.5">
-                            <span className="block text-[9px] text-muted-foreground">{ind.label}</span>
-                            <span className="block font-medium text-muted-foreground italic text-[10px]" title={ind.value}>
-                              {ind.value}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mt-2.5 grid grid-cols-2 gap-2 text-[11px]">
-                      {activeWpIndicators.map((ind) => (
-                        <div key={ind.label} className="rounded-xs bg-muted/40 p-1.5">
-                          <span className="block text-[10px] text-muted-foreground">{ind.label}</span>
-                          <span className="num font-semibold text-foreground">{ind.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <p className="mt-2.5 text-[10px] leading-relaxed text-muted-foreground italic border-t border-border pt-2">
-                    {isDemoSubmission
-                      ? writingPattern.note
-                      : isWpUnavailable
-                      ? "Insufficient prose content to assess writing-pattern characteristics reliably."
-                      : "Document structural cadence, burstiness, and entropy are consistent with authentic human academic composition."}
-                  </p>
-                </div>
-              </TabsContent>
-
-              {/* TAB 2: SOURCES */}
-              <TabsContent value="sources" className="p-4 space-y-3 m-0">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] font-semibold text-foreground">
-                    Matched Primary Sources
-                  </span>
-                  <span className="num text-[11px] text-muted-foreground">
-                    {sourcesToDisplay.length} sources
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  {sourcesToDisplay.length === 0 ? (
-                    <div className="rounded-sm border border-emerald-200 bg-emerald-50/50 p-4 text-center">
-                      <CheckCircle2 className="mx-auto size-6 text-emerald-600 mb-2" />
-                      <p className="text-xs font-semibold text-emerald-800">No Primary Source Overlap Detected</p>
-                      <p className="text-[11px] text-muted-foreground mt-1">
-                        No significant textual or semantic overlap was detected across indexed institutional databases or external corpora.
-                      </p>
-                    </div>
-                  ) : (
-                    sourcesToDisplay.map((s: any, idx: number) => (
-                      <div
-                        key={s.id || idx}
-                        className="rounded-sm border border-border bg-background p-2.5 text-[12px]"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="num text-[10px] font-semibold text-muted-foreground">
-                            #{idx + 1} · {s.type || "reference"}
-                          </span>
-                          <span className="num font-semibold text-danger">{s.contribution}%</span>
-                        </div>
-                        <p className="mt-1 font-medium text-foreground">{s.title}</p>
-                        <p className="text-[11px] text-muted-foreground truncate">{s.domain}</p>
-                        <div className="mt-2 flex items-center justify-between pt-1 border-t border-border text-[11px]">
-                          <span className="num text-muted-foreground">{s.words} matched words</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-1.5 text-[11px] text-brand hover:underline"
-                            asChild
-                          >
-                            <Link to="/compare">
-                              View Diff <ExternalLink className="ml-1 size-3" />
-                            </Link>
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </TabsContent>
-
-              {/* TAB 3: CITATIONS */}
-              <TabsContent value="citations" className="p-4 space-y-4 m-0">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[12px] font-semibold text-foreground">Citation Integrity</span>
-                    <span className="num rounded-xs bg-muted px-1.5 py-0.5 font-semibold text-[11px]">
-                      {activeCitationAnalysis.style || "IEEE"} Format
-                    </span>
-                  </div>
-                  <div className="mt-2.5 grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded-sm bg-muted/40 p-2">
-                      <span className="num block text-lg font-bold text-foreground">
-                        {activeCitationAnalysis.totalReferencesCount ?? activeCitationAnalysis.references ?? 0}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">References</span>
-                    </div>
-                    <div className="rounded-sm bg-muted/40 p-2">
-                      <span className="num block text-lg font-bold text-foreground">
-                        {activeCitationAnalysis.inTextCitationsCount ?? activeCitationAnalysis.inText ?? 0}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">In-text cited</span>
-                    </div>
-                    <div className="rounded-sm bg-amber-50 p-2 border border-amber-200">
-                      <span className="num block text-lg font-bold text-amber-800">
-                        {activeCitationAnalysis.issues?.length || 0}
-                      </span>
-                      <span className="text-[10px] text-amber-800 font-medium">Issues</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <span className="text-[11px] font-semibold text-foreground uppercase tracking-wide">
-                    Identified Citation Discrepancies
-                  </span>
-                  {(!activeCitationAnalysis.issues || activeCitationAnalysis.issues.length === 0) ? (
-                    <div className="rounded-sm border border-emerald-200 bg-emerald-50/50 p-3 text-center">
-                      <CheckCircle2 className="mx-auto size-5 text-emerald-600 mb-1" />
-                      <p className="text-[11px] font-semibold text-emerald-800">All References Properly Cited</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        Standard IEEE in-text brackets match bibliography listings without discrepancy.
-                      </p>
-                    </div>
-                  ) : (
-                    activeCitationAnalysis.issues.map((issue: any) => (
-                      <div
-                        key={issue.id}
-                        id={`card-${issue.id}`}
-                        className="rounded-sm border border-warning/40 bg-warning-soft p-3 text-[12px] space-y-2"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-1.5">
-                            <AlertTriangle className="size-3.5 shrink-0 text-warning" />
-                            <span className="font-semibold text-warning-foreground text-[11px]">
-                              {issue.type === "uncited_reference"
-                                ? "Uncited Reference (IEEE)"
-                                : issue.type === "missing_citation"
-                                ? "Missing Citation (IEEE)"
-                                : "Citation Formatting Issue"}
-                            </span>
-                          </div>
-                          <span className="num font-mono text-[10px] text-muted-foreground bg-muted/60 px-1 py-0.5 rounded-xs">
-                            {issue.id}
-                          </span>
-                        </div>
-
-                        {issue.referenceText && (
-                          <div className="rounded-xs bg-background/90 border border-border/70 p-2 font-mono text-[11px] text-foreground break-words shadow-xs">
-                            {issue.referenceText}
-                          </div>
-                        )}
-
-                        <p className="text-foreground/90 text-[11px] leading-relaxed">
-                          {issue.reason || issue.text}
-                        </p>
-
-                        <div className="flex items-center justify-between pt-1 border-t border-warning/20 text-[11px]">
-                          <span className="text-[10px] text-muted-foreground font-mono">
-                            Document Target: {issue.target || "Bibliography"}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => jumpToParagraph(issue.target || "p-1", 0)}
-                            className="text-[11px] font-medium text-brand hover:underline flex items-center gap-1"
-                          >
-                            Jump to citation in document →
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </TabsContent>
-
-              {/* TAB: FORMAL FACULTY REVIEW WORKSPACE */}
-              <TabsContent value="review" className="p-4 space-y-4 m-0">
-                <div className="flex items-center justify-between border-b border-border pb-3">
-                  <div>
-                    <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                      <Scale className="size-4 text-brand" /> Formal Academic Review
-                    </h3>
-                    <p className="text-[11px] text-muted-foreground">
-                      Persistent integrity evaluation records and formal disposition.
-                    </p>
-                  </div>
-                  <span className={`inline-flex items-center gap-1 rounded-xs px-2.5 py-1 text-[10px] font-semibold uppercase border ${
-                    reviewRecord?.status === "reviewed"
-                      ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                      : reviewRecord?.status === "in_review"
-                      ? "bg-blue-50 text-blue-800 border-blue-300"
-                      : reviewRecord?.status === "explanation_requested" || reviewRecord?.status === "explanation_received"
-                      ? "bg-purple-50 text-purple-800 border-purple-300"
-                      : "bg-amber-50 text-amber-800 border-amber-300"
-                  }`}>
-                    <span className="size-1.5 rounded-full bg-current" />
-                    {reviewRecord?.status?.replace(/_/g, " ") || "Pending Review"}
-                  </span>
-                </div>
-
-                {/* Recorded Decision Banner (if finalized) */}
-                {reviewRecord?.decision && (
-                  <div className="rounded-sm border border-emerald-200 bg-emerald-50/60 p-3 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-900">
-                        Formal Academic Disposition
-                      </span>
-                      <span className="text-[10px] text-emerald-700">
-                        {reviewRecord.reviewer_name}
-                      </span>
-                    </div>
-                    <p className="text-xs font-bold text-emerald-950">
-                      {reviewRecord.decision.replace(/_/g, " ").toUpperCase()}
-                    </p>
-                    {reviewRecord.decision_rationale && (
-                      <p className="text-[11px] text-emerald-800 italic">
-                        &quot;{reviewRecord.decision_rationale}&quot;
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Lifecycle Transition Actions */}
-                {currentUserRole !== "student" && (
-                  <div className="space-y-2 rounded-sm border border-border bg-card p-3">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Review Lifecycle Actions
-                    </span>
-                    <div className="grid grid-cols-2 gap-2 pt-1">
-                      {(!reviewRecord || reviewRecord.status === "pending") && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-[11px] justify-start text-blue-700 border-blue-200 hover:bg-blue-50"
-                          onClick={() => handleTransitionStatus("in_review", "Faculty initiated document inspection")}
-                        >
-                          <Clock className="mr-1.5 size-3" /> Begin In-Review
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-[11px] justify-start text-purple-700 border-purple-200 hover:bg-purple-50"
-                        onClick={() => setExplanationDialogOpen(true)}
-                      >
-                        <MessageSquare className="mr-1.5 size-3" /> Request Explanation
-                      </Button>
-                      {reviewRecord?.status === "explanation_requested" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-[11px] justify-start text-indigo-700 border-indigo-200 hover:bg-indigo-50"
-                          onClick={() => setResponseDialogOpen(true)}
-                        >
-                          <Send className="mr-1.5 size-3" /> Record Student Reply
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-[11px] justify-start text-amber-700 border-amber-200 hover:bg-amber-50"
-                        onClick={() => handleTransitionStatus("escalated", "Case escalated to departmental board")}
-                      >
-                        <AlertTriangle className="mr-1.5 size-3" /> Escalate to Board
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Formal Case Finding & Disposition Form */}
-                {currentUserRole !== "student" && (
-                  <div className="space-y-3 rounded-sm border border-border bg-card p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Formal Academic Finding & Notes
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        Audited Record
-                      </span>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-medium text-foreground">
-                        Academic Determination
-                      </label>
-                      <select
-                        value={selectedDecision}
-                        onChange={(e) => setSelectedDecision(e.target.value as any)}
-                        className="w-full h-8 rounded-sm border border-input bg-background px-2 text-[12px] text-foreground focus:outline-none focus:border-ring"
-                      >
-                        <option value="">Select Official Finding...</option>
-                        <option value="cleared_no_action">Cleared — No Academic Misconduct</option>
-                        <option value="acceptable_citations">Acceptable Citations / Common Terminology</option>
-                        <option value="minor_amendments_required">Minor Citation Amendments Required</option>
-                        <option value="explanation_satisfactory">Student Explanation Satisfactory</option>
-                        <option value="explanation_unsatisfactory">Student Explanation Unsatisfactory</option>
-                        <option value="academic_misconduct_verified">Academic Misconduct Verified</option>
-                        <option value="not_substantiated">Allegations Not Substantiated</option>
-                        <option value="requires_further_review">Requires Further Institutional Review</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-medium text-foreground">
-                        Decision Rationale (Official Institutional Record)
-                      </label>
-                      <textarea
-                        value={decisionRationale}
-                        onChange={(e) => setDecisionRationale(e.target.value)}
-                        placeholder="State academic reasoning, source verification notes, or cited reference findings..."
-                        rows={2}
-                        className="w-full rounded-sm border border-input bg-background p-2 text-[12px] text-foreground focus:outline-none focus:border-ring"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[11px] font-medium text-foreground">
-                          Faculty Confidential Notes
-                        </label>
-                        <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-xs border border-amber-200">
-                          🔒 Never shown to candidate
-                        </span>
-                      </div>
-                      <textarea
-                        value={facultyNotesText}
-                        onChange={(e) => setFacultyNotesText(e.target.value)}
-                        placeholder="Private deliberations, viva notes, or committee follow-up..."
-                        rows={2}
-                        className="w-full rounded-sm border border-input bg-background p-2 text-[12px] text-foreground focus:outline-none focus:border-ring"
-                      />
-                    </div>
-
-                    <Button
-                      size="sm"
-                      className="w-full h-8 text-[12px] bg-brand text-white hover:bg-brand/90"
-                      onClick={handleRecordDecision}
-                    >
-                      <CheckCircle2 className="mr-1.5 size-3.5" /> Save Decision & Mark Reviewed
-                    </Button>
-                  </div>
-                )}
-
-                {/* Student Explanation Status */}
-                {reviewRecord?.student_explanation_request && (
-                  <div className="space-y-2 rounded-sm border border-purple-200 bg-purple-50/50 p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-purple-900">
-                        Student Explanation Dialogue
-                      </span>
-                      <span className="text-[10px] text-purple-700">
-                        {formatInstitutionalDateTime(reviewRecord.student_explanation_requested_at)}
-                      </span>
-                    </div>
-                    <div className="rounded-xs bg-white/80 p-2 text-[11px] text-purple-950 border border-purple-100">
-                      <strong>Prompt:</strong> &quot;{reviewRecord.student_explanation_request}&quot;
-                    </div>
-                    {reviewRecord.student_explanation_response ? (
-                      <div className="rounded-xs bg-white/80 p-2 text-[11px] text-emerald-950 border border-emerald-100">
-                        <strong>Student Response:</strong> &quot;{reviewRecord.student_explanation_response}&quot;
-                        <span className="block mt-1 text-[9px] text-emerald-700">
-                          Submitted: {formatInstitutionalDateTime(reviewRecord.student_explanation_received_at)}
-                        </span>
-                      </div>
-                    ) : currentUserRole === "student" ? (
-                      <div className="space-y-2 pt-2 border-t border-purple-200">
-                        <label className="text-[11px] font-semibold text-purple-900 block">
-                          Your Explanation & Context:
-                        </label>
-                        <textarea
-                          value={studentExplanationResponse}
-                          onChange={(e) => setStudentExplanationResponse(e.target.value)}
-                          placeholder="Provide citation context, methodology references, or explain the passage overlap..."
-                          rows={3}
-                          className="w-full rounded-sm border border-purple-200 bg-white p-2 text-xs text-foreground focus:outline-none focus:border-purple-400"
-                        />
-                        <Button
-                          size="sm"
-                          className="bg-purple-700 hover:bg-purple-800 text-white text-xs h-7"
-                          onClick={handleSubmitExplanation}
-                        >
-                          <Send className="mr-1.5 size-3" /> Submit Explanation to Faculty
-                        </Button>
-                      </div>
-                    ) : (
-                      <p className="text-[10px] text-purple-700 italic">
-                        Awaiting student response through student portal...
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Evaluated Passages Summary */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Evaluated Passages ({reviewRecord?.reviewed_passages?.length || 0})
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      Human audited
-                    </span>
-                  </div>
-                  {(!reviewRecord?.reviewed_passages || reviewRecord.reviewed_passages.length === 0) ? (
-                    <div className="rounded-sm border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
-                      No individual passages reviewed yet. Open any passage from the document to record a passage determination.
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {reviewRecord.reviewed_passages.map((rp) => (
-                        <div
-                          key={rp.passage_id}
-                          className="rounded-sm border border-border bg-card p-2 text-xs flex items-center justify-between gap-2"
-                        >
-                          <div>
-                            <span className="font-semibold text-foreground uppercase text-[10px]">
-                              {rp.passage_id}
-                            </span>
-                            <span className={`ml-2 rounded-xs px-1.5 py-0.5 text-[9px] font-semibold border ${
-                              rp.status === "cited_or_common"
-                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                : rp.status === "verified_plagiarism"
-                                ? "bg-red-50 text-red-800 border-red-200"
-                                : rp.status === "pending_explanation"
-                                ? "bg-purple-50 text-purple-800 border-purple-200"
-                                : "bg-slate-100 text-slate-800 border-slate-200"
-                            }`}>
-                              {rp.status.replace(/_/g, " ")}
-                            </span>
-                            {rp.reviewer_notes && (
-                              <p className="text-[10px] text-muted-foreground mt-0.5 truncate max-w-[200px]">
-                                {rp.reviewer_notes}
-                              </p>
-                            )}
-                          </div>
-                          <span className="text-[9px] text-muted-foreground">
-                            {rp.reviewed_at.slice(11, 16)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Audit Trail Log */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Review Audit Trail ({auditTrail.length})
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      Immutable Log
-                    </span>
-                  </div>
-                  {auditTrail.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No audit entries logged yet.</p>
-                  ) : (
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                      {auditTrail.map((entry) => (
-                        <div
-                          key={entry.id}
-                          className="rounded-xs border border-border bg-muted/30 p-2 text-[11px] space-y-0.5"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold text-brand text-[10px]">
-                              {entry.action.replace(/_/g, " ")}
-                            </span>
-                            <span className="text-[9px] text-muted-foreground num">
-                              {formatInstitutionalDateTime(entry.created_at)}
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-foreground">
-                            {entry.notes || "Action recorded"}
-                          </p>
-                          <p className="text-[9px] text-muted-foreground">
-                            By {entry.actor_name} ({entry.actor_role})
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-
-              {/* TAB 4: REVISION HISTORY */}
-              <TabsContent value="history" className="p-4 space-y-3 m-0">
-                <span className="text-[12px] font-semibold text-foreground">
-                  Draft Progression & Revision Timeline
-                </span>
-                <p className="text-[11px] text-muted-foreground">
-                  Faculty audit trail showing development milestones prior to final deadline.
-                </p>
-
-                <div className="mt-3 relative pl-4 border-l-2 border-border space-y-4">
-                  {activeRevisionHistory.map((rev: any, idx: number) => (
-                    <div key={rev.id || idx} className="relative">
-                      <div className="absolute -left-[21px] top-1 size-2.5 rounded-full bg-brand" />
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-[12px] text-foreground">{rev.label}</span>
-                          <span className="num text-[11px] text-muted-foreground">{rev.date}</span>
-                        </div>
-                        <span className="num text-[11px] text-muted-foreground">
-                          {typeof rev.words === "number" ? `${rev.words.toLocaleString()} words total` : rev.words}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-border space-y-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full text-[12px]"
-                    asChild
-                  >
-                    <Link to="/compare">
-                      Compare Version 1 → Version 2
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full text-[12px]"
-                    asChild
-                  >
-                    <Link to="/compare">
-                      Compare Version 2 → Final Submission
-                    </Link>
-                  </Button>
-                </div>
-              </TabsContent>
-
-              {/* TAB 5: FEEDBACK & GRADING */}
-              <TabsContent value="feedback" id="feedback-tab-content" className="p-4 space-y-4 m-0">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[12px] font-semibold text-foreground">Evaluation Rubric</span>
-                    <span className="num text-base font-bold text-brand">
-                      {totalScore} / {maxPossibleScore}
-                    </span>
-                  </div>
-                  <div className="mt-2 space-y-2">
-                    {rubricScores.map((r, i) => (
-                      <div key={r.criterion} className="space-y-1">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-foreground">{r.criterion}</span>
-                          <span className="num font-semibold">
-                            {r.score} / {r.max}
-                          </span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max={r.max}
-                          value={r.score}
-                          onChange={(e) => handleScoreChange(i, Number(e.target.value))}
-                          className="w-full accent-navy cursor-pointer"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="border-t border-border pt-3">
-                  <span className="text-[12px] font-semibold text-foreground">
-                    Inline Annotations ({comments.length})
-                  </span>
-                  <div className="mt-2 space-y-2">
-                    {comments.map((c) => (
-                      <div key={c.id} className="rounded-sm border border-border bg-muted/30 p-2 text-[12px]">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-foreground text-[11px]">{c.author}</span>
-                          <span className="num text-[10px] text-muted-foreground">{c.time}</span>
-                        </div>
-                        <p className="mt-1 text-foreground leading-snug">{c.text}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <form onSubmit={handleAddComment} className="mt-3 space-y-2">
-                    <textarea
-                      value={newCommentText}
-                      onChange={(e) => setNewCommentText(e.target.value)}
-                      placeholder="Add faculty feedback note..."
-                      rows={2}
-                      className="w-full rounded-sm border border-input bg-background p-2 text-[12px] focus:outline-none focus:border-ring"
-                    />
-                    <div className="flex justify-end">
-                      <Button type="submit" size="sm" className="h-7 text-[11px]">
-                        Save Annotation
-                      </Button>
-                    </div>
-                  </form>
-                </div>
-
-                <div className="border-t border-border pt-3">
-                  <span className="text-[12px] font-semibold text-foreground">Overall Recommendation</span>
-                  <textarea
-                    value={generalFeedback}
-                    onChange={(e) => setGeneralFeedback(e.target.value)}
-                    rows={3}
-                    className="mt-1.5 w-full rounded-sm border border-input bg-background p-2 text-[12px] focus:outline-none focus:border-ring"
-                  />
-                  <div className="mt-2 flex items-center justify-between">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-[12px]"
-                      onClick={() => toast.success("Marked as Approved")}
-                    >
-                      <CheckCircle2 className="mr-1 size-3.5 text-success" /> Approve Review
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="text-[12px]"
-                      onClick={() => toast.success("Evaluation and feedback published to student portal")}
-                    >
-                      Publish Feedback
-                    </Button>
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </aside>
+          <button
+            type="button"
+            onClick={() => setActiveTab("report")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-md border-b-2 transition-all ${
+              activeTab === "report"
+                ? "border-brand text-brand bg-background shadow-xs font-bold"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
+            }`}
+          >
+            <FileCheck className="size-3.5" />
+            Report
+          </button>
+        </div>
       </div>
 
+      {/* Main Tab View Content */}
+      <div className="mt-4">
+        {activeTab === "overview" && (
+          <SubmissionOverviewTab
+            submission={submission}
+            liveAnalysis={liveAnalysis}
+            activePassages={activePassages}
+            activeEvidence={activeEvidence}
+            citationIssuesCount={submission.citationIssues ?? 0}
+            isWpUnavailable={isWpUnavailable}
+            activeWpStatus={activeWpStatus}
+            proseWordCount={proseWordCount}
+            onNavigateTab={(tab) => setActiveTab(tab)}
+          />
+        )}
+
+        {activeTab === "evidence" && (
+          <SubmissionEvidenceTab
+            activePassages={activePassages}
+            currentUserRole={currentUserRole}
+            reviewedPassages={reviewRecord?.reviewed_passages || []}
+            onSelectMatch={(p: any) => {
+              setSelectedMatch(p);
+              setEvidenceDialogOpen(true);
+            }}
+            onRecordPassageReview={async (status: ReviewedPassageStatus, passageId: string) => {
+              await handleRecordPassageReviewDirect(passageId, status);
+            }}
+            onJumpToParagraph={(pId: string) => jumpToParagraph(pId)}
+          />
+        )}
+
+        {activeTab === "document" && (
+          <SubmissionDocumentTab
+            activePages={activePages}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            zoomLevel={zoomLevel}
+            setZoomLevel={setZoomLevel}
+            highlightsEnabled={highlightsEnabled}
+            setHighlightsEnabled={setHighlightsEnabled}
+            docSearch={docSearch}
+            setDocSearch={setDocSearch}
+            selectedMatch={selectedMatch}
+            setSelectedMatch={setSelectedMatch}
+            submission={submission}
+            citationIssues={activeCitationAnalysis?.issues || []}
+            onOpenEvidenceDialog={(match) => {
+              setSelectedMatch(match);
+              setEvidenceDialogOpen(true);
+            }}
+            onAddAnnotation={(pId) => {
+              setCommentTargetParagraph(pId);
+              setActiveTab("review");
+              toast.info(`Ready to annotate paragraph ${pId}`);
+            }}
+          />
+        )}
+
+        {activeTab === "citations" && (
+          <SubmissionCitationsTab
+            citationAnalysis={activeCitationAnalysis}
+            onJumpToParagraph={(pId) => jumpToParagraph(pId)}
+          />
+        )}
+
+        {activeTab === "review" && (
+          <SubmissionReviewTab
+            reviewRecord={reviewRecord}
+            auditTrail={auditTrail}
+            selectedDecision={selectedDecision}
+            setSelectedDecision={(d) => setSelectedDecision(d)}
+            decisionRationale={decisionRationale}
+            setDecisionRationale={setDecisionRationale}
+            facultyNotesText={facultyNotesText}
+            setFacultyNotesText={setFacultyNotesText}
+            generalFeedback={generalFeedback}
+            setGeneralFeedback={setGeneralFeedback}
+            rubricScores={rubricScores}
+            onScoreChange={handleScoreChange}
+            totalScore={totalScore}
+            maxPossibleScore={maxPossibleScore}
+            onRecordDecision={handleRecordDecision}
+            onTransitionStatus={handleTransitionStatus}
+            onOpenExplanationDialog={() => setExplanationDialogOpen(true)}
+            onOpenResponseDialog={() => setResponseDialogOpen(true)}
+            onRecordPassageReviewDirect={handleRecordPassageReviewDirect}
+            activePassages={activePassages}
+            currentUserRole={currentUserRole}
+            submission={submission}
+          />
+        )}
+
+        {activeTab === "report" && (
+          <SubmissionReportTab
+            submission={submission}
+            reviewRecord={reviewRecord}
+            auditTrail={auditTrail}
+            onDownloadPdf={handleDownloadPdf}
+            onOpenModalPreview={() => setReportModalOpen(true)}
+          />
+        )}
+      </div>
       {/* Official Academic Integrity PDF Report Modal Dialog */}
       <Dialog open={reportModalOpen} onOpenChange={setReportModalOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto font-sans p-6 sm:p-8">

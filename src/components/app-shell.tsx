@@ -3,10 +3,13 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeftRight,
   BarChart3,
+  BookMarked,
   BookOpen,
   Bell,
   Building2,
   ClipboardList,
+  Eye,
+  FileCheck,
   FileText,
   GitCompare,
   GraduationCap,
@@ -17,6 +20,8 @@ import {
   MessageSquare,
   Search,
   Settings,
+  ShieldCheck,
+  Upload,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,6 +41,52 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { courses, submissions, semesters } from "@/lib/mock-data";
 
 type NavItem = { label: string; to: string; icon: React.ComponentType<{ className?: string }> };
+
+type NavGroup = {
+  heading: string;
+  items: NavItem[];
+};
+
+const facultyNavGroups: NavGroup[] = [
+  {
+    heading: "Workspace",
+    items: [
+      { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
+    ],
+  },
+  {
+    heading: "Courses",
+    items: [
+      { label: "Courses", to: "/courses", icon: BookOpen },
+      { label: "Students", to: "/students", icon: Users },
+      { label: "Assignments", to: "/assignments", icon: ClipboardList },
+    ],
+  },
+  {
+    heading: "Submissions",
+    items: [
+      { label: "Submissions", to: "/submissions", icon: FileText },
+      { label: "Submission Upload", to: "/assignments/new", icon: Upload },
+    ],
+  },
+  {
+    heading: "Analysis",
+    items: [
+      { label: "Similarity Results", to: "/submissions", icon: BarChart3 },
+      { label: "Source Matching", to: "/compare", icon: GitCompare },
+      { label: "Document Viewer", to: "/submissions/SUB-2026-09124", icon: Eye },
+      { label: "Citation Analysis", to: "/submissions", icon: BookMarked },
+    ],
+  },
+  {
+    heading: "Review",
+    items: [
+      { label: "Faculty Review", to: "/submissions", icon: ShieldCheck },
+      { label: "Feedback", to: "/reports", icon: MessageSquare },
+      { label: "Integrity Reports", to: "/reports", icon: FileCheck },
+    ],
+  },
+];
 
 const facultyNav: NavItem[] = [
   { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
@@ -115,57 +166,73 @@ function SidebarContent({
       </div>
 
       <nav aria-label="Primary" className="flex-1 overflow-y-auto px-2 py-3">
-        <ul className="space-y-0.5">
-          {nav.map((item) => {
-            const active =
-              pathname === item.to || (item.to !== "/student" && pathname.startsWith(item.to + "/"));
-            return (
-              <li key={item.to}>
-                <Link
-                  to={item.to}
-                  onClick={onNavigate}
-                  className={cn(
-                    "flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-[13px] transition-colors",
-                    active
-                      ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/85 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                  )}
-                  aria-current={active ? "page" : undefined}
-                >
-                  <item.icon className="size-4 shrink-0 opacity-80" />
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-
         {role === "faculty" ? (
-          <div className="mt-5 border-t border-sidebar-border pt-4">
-            <p className="px-2.5 text-[10px] font-semibold tracking-[0.14em] text-sidebar-foreground/55 uppercase">
-              Workspace
-            </p>
-            <ul className="mt-1.5 space-y-0.5">
-              {courses.slice(0, 3).map((c) => (
-                <li key={c.id}>
+          <div className="space-y-4">
+            {facultyNavGroups.map((group) => (
+              <div key={group.heading} className="space-y-1">
+                <p className="px-2.5 text-[10px] font-bold tracking-[0.14em] text-sidebar-foreground/50 uppercase">
+                  {group.heading}
+                </p>
+                <ul className="space-y-0.5">
+                  {group.items.map((item) => {
+                    const active =
+                      item.to === "/dashboard"
+                        ? pathname === "/dashboard"
+                        : item.to === "/submissions/SUB-2026-09124"
+                        ? pathname.startsWith("/submissions/")
+                        : item.to === "/submissions"
+                        ? pathname === "/submissions"
+                        : pathname === item.to || pathname.startsWith(item.to + "/");
+
+                    return (
+                      <li key={item.label}>
+                        <Link
+                          to={item.to}
+                          onClick={onNavigate}
+                          className={cn(
+                            "flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-[13px] transition-colors",
+                            active
+                              ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                              : "text-sidebar-foreground/85 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                          )}
+                          aria-current={active ? "page" : undefined}
+                        >
+                          <item.icon className="size-4 shrink-0 opacity-80" />
+                          {item.label}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <ul className="space-y-0.5">
+            {nav.map((item) => {
+              const active =
+                pathname === item.to || (item.to !== "/student" && pathname.startsWith(item.to + "/"));
+              return (
+                <li key={item.to}>
                   <Link
-                    to="/courses/$courseId"
-                    params={{ courseId: c.id }}
+                    to={item.to}
                     onClick={onNavigate}
-                    className="flex items-center justify-between rounded-sm px-2.5 py-1.5 text-[12px] text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-[13px] transition-colors",
+                      active
+                        ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground/85 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                    )}
+                    aria-current={active ? "page" : undefined}
                   >
-                    <span className="num">{c.code}</span>
-                    {c.pending > 0 ? (
-                      <span className="num rounded-sm bg-sidebar-accent px-1.5 text-[10px] text-sidebar-accent-foreground">
-                        {c.pending}
-                      </span>
-                    ) : null}
+                    <item.icon className="size-4 shrink-0 opacity-80" />
+                    {item.label}
                   </Link>
                 </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
+              );
+            })}
+          </ul>
+        )}
       </nav>
 
       <div className="border-t border-sidebar-border px-2 py-3">
