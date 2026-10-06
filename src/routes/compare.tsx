@@ -16,7 +16,7 @@ import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { submissions, courses, matchedSources } from "@/lib/mock-data";
+import { submissions, courses, matchedSources, students as mockStudents } from "@/lib/mock-data";
 import { verityApi } from "@/services/verity-api";
 import type { ComparisonResult } from "@/lib/backend/similarity-engine";
 import { compareTwoDocuments } from "@/lib/backend/similarity-engine";
@@ -39,17 +39,19 @@ function ComparePage() {
   const [mode, setMode] = useState<"student-source" | "student-student" | "draft-final">("student-student");
   const [syncScroll, setSyncScroll] = useState(true);
 
-  // Selected entities
-  const [studentA, setStudentA] = useState("22CSE057");
-  const [studentB, setStudentB] = useState("22CSE041");
+  const initialStudents = mockStudents.map(s => ({
+    id: s.id,
+    name: s.name,
+    roll: s.roll,
+    dept: s.courseCode
+  }));
+
+  const [studentOptions, setStudentOptions] = useState<{ id: string; name: string; roll: string; dept: string }[]>(initialStudents);
+  const [studentA, setStudentA] = useState(initialStudents[0]?.id || "");
+  const [studentB, setStudentB] = useState(initialStudents[1]?.id || "");
+  
   const [selectedSource, setSelectedSource] = useState(matchedSources[0]?.id ?? "src-01");
   const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
-  const [studentOptions, setStudentOptions] = useState<{ id: string; name: string; roll: string; dept: string }[]>([
-    { id: "22cse057", name: "Riya Sharma", roll: "22CSE057", dept: "ENG-CSE-301" },
-    { id: "22cse041", name: "Aarav Mehta", roll: "22CSE041", dept: "ENG-CSE-301" },
-    { id: "22cse063", name: "Kabir Patel", roll: "22CSE063", dept: "ENG-CSE-301" },
-    { id: "22cse018", name: "Ananya Iyer", roll: "22CSE018", dept: "ENG-CSE-305" },
-  ]);
 
   useEffect(() => {
     verityApi.students.list().then((list) => {
@@ -80,13 +82,13 @@ function ComparePage() {
       });
     } else if (mode === "student-source") {
       const sourceObj = matchedSources.find((s) => s.id === selectedSource);
-      const textStudent = "A binary search tree degrades to linear search behaviour when keys arrive in sorted order. Self-balancing variants restore logarithmic height by performing local rotations after each structural modification, bounding the worst-case cost of search, insertion, and deletion at O(log n). Rotation counts were instrumented directly in the rebalancing routines. Height was sampled after every 10,000 operations.";
-      const textSource = "A binary search tree degrades to linear search behaviour when keys arrive in sorted order. Self-balancing variants restore logarithmic height by performing local rotations after each structural modification, bounding the worst-case cost of search, insertion, and deletion at O(log n).";
+      const textStudent = "Ohm's law states that the current through a conductor between two points is directly proportional to the voltage across the two points. Introducing the constant of proportionality, the resistance, one arrives at the usual mathematical equation that describes this relationship: I = V/R. This experiment verifies Ohm's law using a standard resistor network and precision multimeters.";
+      const textSource = "Ohm's law states that the current through a conductor between two points is directly proportional to the voltage across the two points. Introducing the constant of proportionality, the resistance, one arrives at the usual mathematical equation that describes this relationship: I = V/R.";
       const res = compareTwoDocuments(textStudent, textSource, sourceObj?.title || "External Source", "web");
       if (isMounted) setComparisonResult(res);
     } else {
-      const textDraft = "A binary search tree degrades to linear search behaviour when keys arrive in sorted order. Rotation counts were instrumented directly in the rebalancing routines.";
-      const textFinal = "A binary search tree degrades to linear search behaviour when keys arrive in sorted order. Self-balancing variants restore logarithmic height by performing local rotations. Rotation counts were instrumented directly in the rebalancing routines.";
+      const textDraft = "Ohm's law states that the current is proportional to the voltage. The mathematical equation that describes this relationship is I = V/R. This experiment verifies it.";
+      const textFinal = "Ohm's law states that the current through a conductor between two points is directly proportional to the voltage across the two points. The mathematical equation that describes this relationship is I = V/R. This experiment verifies it using a standard resistor network.";
       const res = compareTwoDocuments(textDraft, textFinal, "Draft Milestone", "internal_document");
       if (isMounted) setComparisonResult(res);
     }
@@ -256,85 +258,59 @@ function ComparePage() {
 
       {/* Selectors Bar */}
       <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/40 px-4 py-2.5">
-        {mode === "student-student" && (
-          <>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase">Target Student:</span>
-              <select
-                value={studentA}
-                onChange={(e) => setStudentA(e.target.value)}
-                className="h-8 rounded-sm border border-input bg-card px-2.5 text-[12px] font-medium text-foreground"
-              >
-                {studentOptions.map((s) => (
-                  <option key={s.id} value={s.roll || s.id}>
-                    {s.name} ({s.roll || "ID"} · {s.dept})
-                  </option>
-                ))}
-              </select>
-            </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase">
+            {mode === "draft-final" ? "Earlier Milestone:" : "Student Submission:"}
+          </span>
+          {mode === "draft-final" ? (
+            <span className="text-[12px] font-semibold text-foreground">Version 1 (18 Sep 2026 · 1,284 words)</span>
+          ) : (
+            <select
+              value={studentA}
+              onChange={(e) => setStudentA(e.target.value)}
+              className="h-8 rounded-sm border border-input bg-card px-2.5 text-[12px] font-medium text-foreground"
+            >
+              {studentOptions.map((s) => (
+                <option key={s.id} value={s.roll || s.id}>
+                  {s.name} ({s.roll || "ID"} · {s.dept})
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
 
-            <ArrowRightLeft className="size-4 text-muted-foreground hidden sm:block" />
+        <ArrowRightLeft className="size-4 text-muted-foreground hidden sm:block" />
 
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase">Comparing Against:</span>
-              <select
-                value={studentB}
-                onChange={(e) => setStudentB(e.target.value)}
-                className="h-8 rounded-sm border border-input bg-card px-2.5 text-[12px] font-medium text-foreground"
-              >
-                {studentOptions.map((s) => (
-                  <option key={s.id} value={s.roll || s.id}>
-                    {s.name} ({s.roll || "ID"} · {s.dept})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
-        )}
-
-        {mode === "student-source" && (
-          <>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase">Student Submission:</span>
-              <span className="text-[12px] font-semibold text-foreground">
-                {studentOptions.find((s) => s.roll === studentA || s.id === studentA)?.name || "Target Student"} ({studentA})
-              </span>
-            </div>
-
-            <ArrowRightLeft className="size-4 text-muted-foreground hidden sm:block" />
-
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase">Matched External Source:</span>
-              <select
-                value={selectedSource}
-                onChange={(e) => setSelectedSource(e.target.value)}
-                className="h-8 rounded-sm border border-input bg-card px-2.5 text-[12px] font-medium text-foreground"
-              >
-                {matchedSources.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.title} ({s.domain} · {s.contribution}%)
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
-        )}
-
-        {mode === "draft-final" && (
-          <>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase">Earlier Milestone:</span>
-              <span className="text-[12px] font-semibold text-foreground">Version 1 (18 Sep 2026 · 1,284 words)</span>
-            </div>
-
-            <ArrowRightLeft className="size-4 text-muted-foreground hidden sm:block" />
-
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase">Final Submission:</span>
-              <span className="text-[12px] font-semibold text-foreground">Final Copy (21 Sep 2026 · 1,638 words)</span>
-            </div>
-          </>
-        )}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase">Comparing Against:</span>
+          {mode === "student-student" ? (
+            <select
+              value={studentB}
+              onChange={(e) => setStudentB(e.target.value)}
+              className="h-8 rounded-sm border border-input bg-card px-2.5 text-[12px] font-medium text-foreground"
+            >
+              {studentOptions.map((s) => (
+                <option key={s.id} value={s.roll || s.id}>
+                  {s.name} ({s.roll || "ID"} · {s.dept})
+                </option>
+              ))}
+            </select>
+          ) : mode === "student-source" ? (
+            <select
+              value={selectedSource}
+              onChange={(e) => setSelectedSource(e.target.value)}
+              className="h-8 rounded-sm border border-input bg-card px-2.5 text-[12px] font-medium text-foreground"
+            >
+              {matchedSources.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.title} ({s.domain} · {s.contribution}%)
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-[12px] font-semibold text-foreground">Final Copy (21 Sep 2026 · 1,638 words)</span>
+          )}
+        </div>
       </div>
 
       {/* Dual Column Document Comparison View */}
@@ -344,9 +320,9 @@ function ComparePage() {
           <div className="border-b border-border bg-muted/50 px-4 py-2.5 flex items-center justify-between">
             <div>
               <span className="num font-bold text-foreground">
-                {mode === "draft-final" ? "Version 1 Draft (18 Sep)" : "Riya Sharma · 22CSE057"}
+                {mode === "draft-final" ? "Version 1 Draft (18 Sep)" : `${studentOptions.find(s => s.roll === studentA || s.id === studentA)?.name || "Target Student"} · ${studentA}`}
               </span>
-              <p className="text-[11px] text-muted-foreground">Technical Report 02 · Section A</p>
+              <p className="text-[11px] text-muted-foreground">Electrical Assignment 01 · Section A</p>
             </div>
             <span className="rounded-xs bg-card px-2 py-0.5 text-[11px] font-semibold border border-border">
               {mode === "draft-final" ? "1,284 words" : "Target Document"}
@@ -361,7 +337,7 @@ function ComparePage() {
             <div>
               <h4 className="font-bold text-foreground mb-1 text-[13px]">1. Introduction</h4>
               <p className="text-muted-foreground">
-                Balanced search trees provide an efficient method for maintaining ordered collections under dynamic insertion and deletion.
+                Electrical circuit analysis provides an efficient method for determining voltages and currents under dynamic configurations.
               </p>
             </div>
 
@@ -371,7 +347,7 @@ function ComparePage() {
               </span>
               <p className="text-foreground">
                 <mark className="bg-amber-200/70 text-foreground px-0.5">
-                  A binary search tree degrades to linear search behaviour when keys arrive in sorted order. Self-balancing variants restore logarithmic height by performing local rotations after each structural modification, bounding the worst-case cost of search, insertion, and deletion at O(log n).
+                  Ohm's law states that the current through a conductor between two points is directly proportional to the voltage across the two points. Introducing the constant of proportionality, the resistance, one arrives at the usual mathematical equation that describes this relationship: I = V/R.
                 </mark>
               </p>
             </div>
@@ -379,7 +355,7 @@ function ComparePage() {
             <div>
               <h4 className="font-bold text-foreground mb-1 text-[13px]">2. Methodology</h4>
               <p className="text-muted-foreground">
-                Both structures were implemented in C++17 with identical node layouts and compiled at -O2. Each workload was executed ten times on an isolated core; the reported figures are medians. Keys were drawn from three distributions: uniform random, ascending sorted, and a Zipfian distribution.
+                The circuits were constructed using standard breadboards with identical resistor components. Measurements were taken ten times on an isolated bench; the reported figures are medians. Components were drawn from three ranges: uniform resistors, variable potentiometers, and a set of inductors.
               </p>
             </div>
 
@@ -389,7 +365,7 @@ function ComparePage() {
               </span>
               <p className="text-foreground">
                 <mark className="bg-amber-200/70 text-foreground px-0.5">
-                  Rotation counts were instrumented directly in the rebalancing routines. Height was sampled after every 10,000 operations. Lookup latency was measured with a monotonic clock over batches of 1,000 randomly selected present and absent keys.
+                  Voltage drops were instrumented directly across the parallel branches. Current was sampled after every 10 adjustments. Resistance was calculated with a precision multimeter over batches of 100 randomly selected nodes.
                 </mark>
               </p>
             </div>
@@ -397,7 +373,7 @@ function ComparePage() {
             <div>
               <h4 className="font-bold text-foreground mb-1 text-[13px]">3. Results</h4>
               <p className="text-muted-foreground">
-                For uniform random input, AVL trees maintained a mean height of 1.19 log2(n) against 1.34 log2(n) for red-black trees. The stricter AVL balance criterion produced roughly 38% more rotations during insertion.
+                For uniform circuits, Nodal analysis maintained a faster solution time against Mesh analysis. The stricter Kirchhoff's Current Law criterion produced roughly 38% more equations during setup.
               </p>
             </div>
 
@@ -407,7 +383,7 @@ function ComparePage() {
               </span>
               <p className="text-foreground">
                 <mark className="bg-amber-200/70 text-foreground px-0.5">
-                  Under ascending sorted input the difference widened. Red-black trees completed the insertion phase 14% faster owing to their relaxed invariant, while AVL trees retained the shallower structure and therefore the faster query path.
+                  Under complex interconnected topologies the difference widened. Nodal methods completed the calculation phase 14% faster owing to fewer unknown variables, while Mesh methods retained a simpler formulation.
                 </mark>
               </p>
             </div>
@@ -415,7 +391,7 @@ function ComparePage() {
             <div>
               <h4 className="font-bold text-foreground mb-1 text-[13px]">4. Discussion</h4>
               <p className="text-muted-foreground">
-                The results support the conventional guidance that AVL trees are preferable for read-dominated workloads while red-black trees suit write-heavy workloads. The cross-over point in these experiments occurred at approximately a 3:1 read-to-write ratio.
+                The results support the conventional guidance that Nodal analysis is preferable for node-dominated circuits while Mesh analysis suits planar networks.
               </p>
             </div>
           </div>
@@ -427,14 +403,14 @@ function ComparePage() {
             <div>
               <span className="num font-bold text-foreground">
                 {mode === "student-student"
-                  ? "Aarav Mehta · 22CSE041"
+                  ? `${studentOptions.find(s => s.roll === studentB || s.id === studentB)?.name || "Comparison Student"} · ${studentB}`
                   : mode === "student-source"
-                  ? "Course Notes (example.edu)"
+                  ? "Course Notes (physics.edu)"
                   : "Final Submission (21 Sep)"}
               </span>
               <p className="text-[11px] text-muted-foreground">
                 {mode === "student-student"
-                  ? "Technical Report 02 · Section A"
+                  ? "Electrical Assignment 01 · Section A"
                   : mode === "student-source"
                   ? "External Reference Library"
                   : "Final Evaluated Milestone"}
@@ -453,7 +429,7 @@ function ComparePage() {
             <div>
               <h4 className="font-bold text-foreground mb-1 text-[13px]">1. Introduction</h4>
               <p className="text-muted-foreground">
-                Balanced binary trees represent a core algorithmic mechanism for keeping ordered data accessible within logarithmic complexity.
+                Electrical circuit analysis represents a core engineering mechanism for keeping electrical data accessible within specified limits.
               </p>
             </div>
 
@@ -463,7 +439,7 @@ function ComparePage() {
               </span>
               <p className="text-foreground">
                 <mark className="bg-amber-200/70 text-foreground px-0.5">
-                  A binary search tree degrades to linear search behaviour when keys arrive in sorted order. Self-balancing variants restore logarithmic height by performing local rotations after each structural modification, bounding the worst-case cost of search, insertion, and deletion at O(log n).
+                  Ohm's law states that the current through a conductor between two points is directly proportional to the voltage across the two points. Introducing the constant of proportionality, the resistance, one arrives at the usual mathematical equation that describes this relationship: I = V/R.
                 </mark>
               </p>
             </div>
@@ -471,7 +447,7 @@ function ComparePage() {
             <div>
               <h4 className="font-bold text-foreground mb-1 text-[13px]">2. Methodology</h4>
               <p className="text-muted-foreground">
-                Implementations were created in C++17 with equal memory structures and compiled using identical optimization flags (-O2). All execution trials ran on single CPU affinity cores.
+                Experiments were created in labs with equal multimeter calibrations and conducted using identical voltage sources. All execution trials ran on single breadboard layouts.
               </p>
             </div>
 
@@ -481,7 +457,7 @@ function ComparePage() {
               </span>
               <p className="text-foreground">
                 <mark className="bg-amber-200/70 text-foreground px-0.5">
-                  Rotation counts were instrumented directly in the rebalancing routines. Height was sampled after every 10,000 operations. Lookup latency was measured with a monotonic clock over batches of 1,000 randomly selected present and absent keys.
+                  Voltage drops were instrumented directly across the parallel branches. Current was sampled after every 10 adjustments. Resistance was calculated with a precision multimeter over batches of 100 randomly selected nodes.
                 </mark>
               </p>
             </div>
@@ -489,7 +465,7 @@ function ComparePage() {
             <div>
               <h4 className="font-bold text-foreground mb-1 text-[13px]">3. Results</h4>
               <p className="text-muted-foreground">
-                Under randomized input sequences, AVL trees yielded 1.19 log2(n) against 1.34 log2(n) for the red-black structure.
+                Under randomized input sequences, Nodal methods yielded 1.19 V against 1.34 V for the Mesh structure.
               </p>
             </div>
 
@@ -499,7 +475,7 @@ function ComparePage() {
               </span>
               <p className="text-foreground">
                 <mark className="bg-amber-200/70 text-foreground px-0.5">
-                  Under ascending sorted input the difference widened. Red-black trees completed the insertion phase 14% faster owing to their relaxed invariant, while AVL trees retained the shallower structure and therefore the faster query path.
+                  Under complex interconnected topologies the difference widened. Nodal methods completed the calculation phase 14% faster owing to fewer unknown variables, while Mesh methods retained a simpler formulation.
                 </mark>
               </p>
             </div>
@@ -507,7 +483,7 @@ function ComparePage() {
             <div>
               <h4 className="font-bold text-foreground mb-1 text-[13px]">4. Discussion</h4>
               <p className="text-muted-foreground">
-                Experimental results validate theoretical predictions: AVL models yield superior retrieval speed while Red-Black trees outperform when insertion volume dominates.
+                Experimental results validate theoretical predictions: Nodal models yield superior analysis speed while Mesh models outperform when node volume dominates.
               </p>
             </div>
           </div>

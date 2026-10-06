@@ -1186,15 +1186,15 @@ function SubmissionReviewPage() {
               </div>
               <div>
                 <span className="text-[10px] uppercase text-muted-foreground font-semibold">Exact Match</span>
-                <p className="num text-base font-semibold text-foreground">{selectedMatch.exactSimilarity ?? Math.round(selectedMatch.percent * 0.4)}%</p>
+                <p className="num text-base font-semibold text-foreground">{selectedMatch.exactSimilarity ?? 0}%</p>
               </div>
               <div>
                 <span className="text-[10px] uppercase text-muted-foreground font-semibold">Fuzzy Match</span>
-                <p className="num text-base font-semibold text-foreground">{selectedMatch.fuzzySimilarity ?? Math.round(selectedMatch.percent * 0.35)}%</p>
+                <p className="num text-base font-semibold text-foreground">{selectedMatch.fuzzySimilarity ?? 0}%</p>
               </div>
               <div>
                 <span className="text-[10px] uppercase text-muted-foreground font-semibold">Semantic Match</span>
-                <p className="num text-base font-semibold text-foreground">{selectedMatch.semanticSimilarity ?? Math.round(selectedMatch.percent * 0.25)}%</p>
+                <p className="num text-base font-semibold text-foreground">{selectedMatch.semanticSimilarity ?? 0}%</p>
               </div>
               <div>
                 <span className="text-[10px] uppercase text-muted-foreground font-semibold">Confidence</span>

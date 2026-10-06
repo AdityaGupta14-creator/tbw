@@ -18,6 +18,8 @@ import {
 } from "./similarity/types";
 import { analyzeIeeeCitations, type CitationAnalysisResult } from "./citation-engine";
 import { analyzeAIWritingPatterns, type AIWritingAnalysisResult } from "./ai-writing-analysis";
+import { calculateUniqueWordOverlap } from "./similarity/passage-aligner";
+import { tokenizeWords, segmentIntoSentenceSpans } from "./similarity/technical-vocabulary";
 import { separateReferencesSection } from "./similarity/technical-vocabulary";
 import { InternalStudentCorpusProvider } from "./similarity/internal-student-provider";
 import { LocalReferenceCorpusProvider } from "./similarity/local-reference-corpus";
@@ -256,6 +258,7 @@ export async function processSubmissionDocument(
         excludeSubmissionId: params.submissionId,
         excludeSubmissionIds: [params.submissionId, params.submissionCode].filter(Boolean) as string[],
         courseId: params.courseId,
+        assignmentId: params.assignmentId,
         institutionId: params.institutionId || "a0000000-0000-0000-0000-000000000001",
         userRole: params.userRole || "faculty",
         submittingStudentId: params.studentId,
@@ -295,17 +298,43 @@ export async function processSubmissionDocument(
     // 5. Aggregate passages and compute overall non-double-counted overlap
     const allPassages: AlignedPassage[] = discoveryResult.matches.flatMap((m) => m.matchedPassages);
 
-    // Sort passages by student start character position
-    allPassages.sort((a, b) => (a.start_char ?? 0) - (b.start_char ?? 0));
+    // Sort passages by similarity (highest first) to prioritize stronger matches during deduplication
+    allPassages.sort((a, b) => (b.similarity_percentage ?? 0) - (a.similarity_percentage ?? 0));
 
-    // Calculate overall overlap from highest matching sources without double counting
+    const tokens = tokenizeWords(extractedText);
+    const sentences = segmentIntoSentenceSpans(extractedText);
+    
+    // Deduplicate passages to fix Issue 3 (Duplicated source text)
+    // We only keep the strongest passage for each student sentence.
+    const matchedSentenceMask = new Uint8Array(sentences.length);
+    const deduplicatedPassages: AlignedPassage[] = [];
+    for (const p of allPassages) {
+      let overlapCount = 0;
+      const totalSentences = p.end_sentence_idx - p.start_sentence_idx + 1;
+      for (let i = p.start_sentence_idx; i <= p.end_sentence_idx; i++) {
+        if (matchedSentenceMask[i]) overlapCount++;
+      }
+      
+      // Keep passage if it doesn't mostly overlap with a stronger one (allow small overlaps)
+      if (overlapCount < totalSentences * 0.5) {
+        deduplicatedPassages.push(p);
+        for (let i = p.start_sentence_idx; i <= p.end_sentence_idx; i++) {
+          matchedSentenceMask[i] = 1;
+        }
+      }
+    }
+    
+    // Sort passages back by student start character position for chronological display
+    deduplicatedPassages.sort((a, b) => (a.start_char ?? 0) - (b.start_char ?? 0));
+
+    // Calculate overall overlap from deduplicated passages without double counting
+    const deduplicatedOverlapResult = calculateUniqueWordOverlap(tokens, sentences, deduplicatedPassages);
+    const overallSimilarity = deduplicatedOverlapResult.overallOverlapPercentage;
     const maxSourceOverlap = discoveryResult.matches.length > 0
       ? discoveryResult.matches[0]!.similarityPercentage
       : 0;
 
-    const studentOverlap = studentPeerMatches.length > 0
-      ? Math.max(...studentPeerMatches.map((s) => s.similarityPercentage))
-      : 0;
+    const studentOverlap = calculateUniqueWordOverlap(tokens, sentences, deduplicatedPassages.filter(p => p.source_type === "student_submission")).overallOverlapPercentage;
 
     // Granular similarity matches for table persistence
     const matches: SimilarityMatch[] = discoveryResult.matches.flatMap((srcMatch, sIdx) =>
@@ -340,16 +369,7 @@ export async function processSubmissionDocument(
     const strongMatchesCount = discoveryResult.matches.filter((m) => m.evidenceLevel === "strong").length;
     const moderateMatchesCount = discoveryResult.matches.filter((m) => m.evidenceLevel === "moderate").length;
 
-    const evidenceBreakdown: EvidenceBreakdown = {
-      strong_percentage: strongMatchesCount > 0 ? Math.round(maxSourceOverlap * 0.7) : 0,
-      moderate_percentage: moderateMatchesCount > 0 ? Math.round(maxSourceOverlap * 0.3) : 0,
-      semantic_percentage: Math.round(
-        discoveryResult.matches.reduce((max, m) => Math.max(max, m.semanticMatchPercentage), 0)
-      ),
-      weak_percentage: maxSourceOverlap < 15 ? maxSourceOverlap : 0,
-      unique_matched_words: discoveryResult.matches.reduce((sum, m) => sum + m.matchedWordCount, 0),
-      total_document_words: wordCount,
-    };
+    const evidenceBreakdown: EvidenceBreakdown = deduplicatedOverlapResult.breakdown;
 
     const transparentBreakdown: TransparentEvidenceBreakdown = {
       exactSimilarity: discoveryResult.matches[0]?.exactMatchPercentage ?? 0,
@@ -363,7 +383,7 @@ export async function processSubmissionDocument(
     };
 
     const overallStatus: "needs_review" | "reviewed" =
-      maxSourceOverlap >= 25 || aiWritingResult.status === "review_recommended" || citeResult.issues.length > 0
+      overallSimilarity >= 25 || aiWritingResult.status === "review_recommended" || citeResult.issues.length > 0
         ? "needs_review"
         : "reviewed";
 
@@ -387,7 +407,7 @@ export async function processSubmissionDocument(
         id: `ana-${params.submissionId}`,
         submission_id: params.submissionId,
         status: "completed",
-        similarity_percentage: maxSourceOverlap,
+        similarity_percentage: overallSimilarity,
         matched_source_count: discoveryResult.matches.length,
         student_overlap_percentage: studentOverlap,
         citation_issue_count: citeResult.issues.length,
@@ -396,13 +416,13 @@ export async function processSubmissionDocument(
             ? "Writing pattern analysis unavailable"
             : aiWritingResult.status === "review_recommended"
             ? "Review Recommended"
-            : maxSourceOverlap > 25
+            : overallSimilarity > 25
             ? "Requires Review"
             : "Normal",
         structural_similarity_percentage: 0,
         evidence_breakdown: evidenceBreakdown,
         transparent_breakdown: transparentBreakdown,
-        passages: allPassages,
+        passages: deduplicatedPassages,
         matches,
         citation_analysis: citeResult,
         ai_writing_analysis: aiWritingResult,

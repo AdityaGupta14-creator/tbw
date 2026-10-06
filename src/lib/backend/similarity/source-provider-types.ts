@@ -71,6 +71,8 @@ export interface SourceSearchQuery {
   submittingStudentId?: string | undefined;
   /** Enrolled course ID for cohort isolation */
   courseId?: string | undefined;
+  /** Assignment ID for assignment-level isolation */
+  assignmentId?: string | undefined;
   /** Institution ID for cross-institution isolation */
   institutionId?: string | undefined;
   /** Requesting user's role (enforces privacy boundaries) */

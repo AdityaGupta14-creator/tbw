@@ -16,7 +16,7 @@ export type SourceType = "web" | "academic" | "student_submission" | "internal_d
 
 export type AnalysisStatus = "pending" | "processing" | "completed" | "failed";
 
-export type CitationStyle = "IEEE" | "APA" | "ACM" | "ASME" | "Chicago" | "Other";
+export type CitationStyle = "Normal" | "IEEE" | "APA" | "ACM" | "ASME" | "Chicago" | "Other";
 
 export interface Profile {
   id: string;
@@ -28,6 +28,11 @@ export interface Profile {
   institution_id?: string | undefined;
   department_id?: string | undefined;
   department_name?: string | undefined;
+  department_code?: string | undefined;
+  section?: string | undefined;
+  batch?: string | undefined;
+  course_code?: string | undefined;
+  avatar_url?: string | undefined;
   created_at: string;
   updated_at: string;
 }
@@ -55,6 +60,7 @@ export interface Course {
   institution_id?: string | undefined;
   department_id?: string | undefined;
   department_name?: string | undefined;
+  department_code?: string | undefined;
   faculty_id: string;
   faculty_name?: string | undefined;
   course_code: string;
@@ -63,6 +69,7 @@ export interface Course {
   semester: string;
   academic_year: string;
   description?: string | undefined;
+  batches?: string[] | undefined;
   student_count?: number | undefined;
   assignment_count?: number | undefined;
   pending_count?: number | undefined;
@@ -85,6 +92,11 @@ export interface Assignment {
   course_id: string;
   course_code?: string | undefined;
   course_name?: string | undefined;
+  department_id?: string | undefined;
+  department_name?: string | undefined;
+  department_code?: string | undefined;
+  subject?: string | undefined;
+  batch?: string | undefined;
   title: string;
   description?: string | undefined;
   assignment_type: string;

@@ -24,7 +24,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  submissions,
   courses,
   assignments,
   semesters,
@@ -36,8 +35,17 @@ import {
 } from "@/lib/mock-data";
 import { generateAcademicAuditReportPdf } from "@/lib/backend/reports/pdf-audit-report-generator";
 import { db } from "@/lib/backend/db";
+import { verityApi } from "@/services/verity-api";
 
 export const Route = createFileRoute("/reports")({
+  loader: async () => {
+    try {
+      const list = await verityApi.submissions.list();
+      return list;
+    } catch {
+      return [];
+    }
+  },
   head: () => ({
     meta: [
       { title: "Academic Integrity Reports — Verity" },
@@ -52,6 +60,22 @@ export const Route = createFileRoute("/reports")({
 });
 
 function ReportsPage() {
+  const loaderData = Route.useLoaderData();
+  const loadedSubmissions: Submission[] = loaderData.map((s: any) => ({
+    id: s.id,
+    student: s.student_name || "Unknown",
+    roll: s.student_roll || s.student_id || "N/A",
+    courseCode: s.course_code || "Unknown",
+    assignment: s.assignment_title || "Unknown",
+    similarity: s.similarity_percentage || 0,
+    status: s.status === "processing" ? "review" : s.status === "needs_review" ? "review" : "reviewed",
+    matchedSources: s.matched_source_count || 0,
+    citationIssues: s.citation_issue_count || 0,
+    drafts: s.drafts_count || 1,
+    assignmentId: s.assignment_id || "unknown",
+    submitted: s.submitted_at || new Date().toISOString(),
+  }));
+
   const [courseFilter, setCourseFilter] = useState("All courses");
   const [semesterFilter, setSemesterFilter] = useState("2026–27");
   const [statusFilter, setStatusFilter] = useState("All statuses");
@@ -62,7 +86,7 @@ function ReportsPage() {
   const courseOptions = ["All courses", ...courses.map((c) => c.code)];
   const statusOptions = ["All statuses", "Requires Review", "High Similarity", "Reviewed", "Pending"];
 
-  const filtered = submissions.filter((s) => {
+  const filtered = loadedSubmissions.filter((s) => {
     if (courseFilter !== "All courses" && s.courseCode !== courseFilter) return false;
     if (statusFilter === "Requires Review" && s.status !== "review") return false;
     if (statusFilter === "High Similarity" && s.status !== "flagged") return false;
@@ -202,6 +226,7 @@ function ReportsPage() {
             <Th>Assignment</Th>
             <Th numeric>Similarity</Th>
             <Th numeric>Citations</Th>
+            <Th numeric>Marks (/10)</Th>
             <Th>Status</Th>
             <Th className="text-right">Report Actions</Th>
           </tr>
@@ -222,6 +247,9 @@ function ReportsPage() {
                 ) : (
                   "0"
                 )}
+              </Td>
+              <Td numeric className="num font-semibold text-foreground">
+                {Math.max(0, 10 - Math.floor(s.similarity / 10))}/10
               </Td>
               <Td>
                 <StatusBadge status={s.status} />

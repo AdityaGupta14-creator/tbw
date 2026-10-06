@@ -3,7 +3,7 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeftRight,
   BarChart3,
-  BookMarked,
+  Bookmark,
   BookOpen,
   Bell,
   Building2,
@@ -57,7 +57,6 @@ const facultyNavGroups: NavGroup[] = [
   {
     heading: "Courses",
     items: [
-      { label: "Courses", to: "/courses", icon: BookOpen },
       { label: "Students", to: "/students", icon: Users },
       { label: "Assignments", to: "/assignments", icon: ClipboardList },
     ],
@@ -72,17 +71,13 @@ const facultyNavGroups: NavGroup[] = [
   {
     heading: "Analysis",
     items: [
-      { label: "Similarity Results", to: "/submissions", icon: BarChart3 },
       { label: "Source Matching", to: "/compare", icon: GitCompare },
       { label: "Document Viewer", to: "/submissions/SUB-2026-09124", icon: Eye },
-      { label: "Citation Analysis", to: "/submissions", icon: BookMarked },
     ],
   },
   {
     heading: "Review",
     items: [
-      { label: "Faculty Review", to: "/submissions", icon: ShieldCheck },
-      { label: "Feedback", to: "/reports", icon: MessageSquare },
       { label: "Integrity Reports", to: "/reports", icon: FileCheck },
     ],
   },
@@ -90,7 +85,6 @@ const facultyNavGroups: NavGroup[] = [
 
 const facultyNav: NavItem[] = [
   { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
-  { label: "Courses", to: "/courses", icon: BookOpen },
   { label: "Assignments", to: "/assignments", icon: ClipboardList },
   { label: "Submissions", to: "/submissions", icon: FileText },
   { label: "Students", to: "/students", icon: Users },
@@ -149,19 +143,39 @@ function SidebarContent({
   onOpenSwitcher?: () => void;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [facultyName, setFacultyName] = useState("Dr. P. Kulkarni");
+  const [facultySubject, setFacultySubject] = useState("Computer Engineering");
+
+  useEffect(() => {
+    const updateInfo = () => {
+      const storedName = localStorage.getItem("facultyName");
+      if (storedName) setFacultyName(storedName);
+      
+      const storedSubject = localStorage.getItem("facultySubject");
+      if (storedSubject) setFacultySubject(storedSubject);
+    };
+    updateInfo();
+    window.addEventListener("facultyInfoChanged", updateInfo);
+    window.addEventListener("facultyNameChanged", updateInfo); // Fallback for old events
+    return () => {
+      window.removeEventListener("facultyInfoChanged", updateInfo);
+      window.removeEventListener("facultyNameChanged", updateInfo);
+    };
+  }, []);
+
   const nav = role === "student" ? studentNav : role === "admin" ? adminNav : facultyNav;
   const { currentStudent } = useStudentSession();
 
   return (
     <div className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
-      <div className="border-b border-sidebar-border px-4 py-4">
-        <Link to="/" onClick={onNavigate} className="block">
-          <span className="text-[15px] font-semibold tracking-[0.18em] text-sidebar-accent-foreground">
-            VERITY
-          </span>
-          <span className="mt-0.5 block text-[11px] text-sidebar-foreground/70">
-            Academic Integrity
-          </span>
+      <div className="border-b border-sidebar-border px-4 py-4 flex justify-center">
+        <Link to="/" onClick={onNavigate} className="block hover:opacity-90 transition-opacity">
+          <div className="flex items-center justify-center px-3 py-1.5 h-9 bg-white rounded shadow-sm border border-black/5">
+            <span className="text-xl font-bold tracking-tight leading-none">
+              <span className="text-black">ver</span>
+              <span className="text-red-600">ity</span>
+            </span>
+          </div>
         </Link>
       </div>
 
@@ -190,10 +204,10 @@ function SidebarContent({
                           to={item.to}
                           onClick={onNavigate}
                           className={cn(
-                            "flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-[13px] transition-colors",
+                            "flex items-center gap-2.5 rounded-full px-4 py-2 text-[14px] transition-all duration-200 active:scale-95",
                             active
-                              ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                              : "text-sidebar-foreground/85 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                              ? "bg-warning font-semibold text-warning-foreground"
+                              : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                           )}
                           aria-current={active ? "page" : undefined}
                         >
@@ -218,10 +232,10 @@ function SidebarContent({
                     to={item.to}
                     onClick={onNavigate}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-[13px] transition-colors",
+                      "flex items-center gap-2.5 rounded-full px-4 py-2 text-[14px] transition-all duration-200 active:scale-95",
                       active
-                        ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground/85 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                        ? "bg-warning font-semibold text-warning-foreground"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                     )}
                     aria-current={active ? "page" : undefined}
                   >
@@ -291,14 +305,14 @@ function SidebarContent({
         ) : (
           <div className="mt-3 flex items-center gap-2.5 rounded-sm bg-sidebar-accent/50 px-2.5 py-2">
             <span className="num flex size-7 items-center justify-center rounded-full bg-sidebar-primary text-[11px] font-semibold text-sidebar-primary-foreground">
-              {role === "admin" ? "AD" : "PK"}
+              {role === "admin" ? "AD" : getInitials(facultyName)}
             </span>
             <div className="min-w-0">
               <p className="truncate text-[12px] font-medium text-sidebar-accent-foreground">
-                {role === "admin" ? "Registrar Office" : "Dr. P. Kulkarni"}
+                {role === "admin" ? "Registrar Office" : facultyName}
               </p>
               <p className="num truncate text-[10px] text-sidebar-foreground/65">
-                {role === "admin" ? "Administrator" : "Computer Engineering"}
+                {role === "admin" ? "Administrator" : facultySubject}
               </p>
             </div>
           </div>
@@ -311,7 +325,7 @@ function SidebarContent({
 function Breadcrumbs() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const segments = pathname.split("/").filter(Boolean);
-  if (segments.length === 0) return null;
+  if (segments.length === 0 && pathname !== "/") return null;
 
   const crumbs = segments.map((seg, i) => {
     const href = "/" + segments.slice(0, i + 1).join("/");
@@ -323,21 +337,27 @@ function Breadcrumbs() {
   });
 
   return (
-    <nav aria-label="Breadcrumb" className="hidden min-w-0 md:block">
-      <ol className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-        {crumbs.map((c, i) => (
-          <li key={c.href} className="flex min-w-0 items-center gap-1.5">
-            {i > 0 ? <span aria-hidden="true">/</span> : null}
-            {i === crumbs.length - 1 ? (
-              <span className="truncate font-medium text-foreground">{c.label}</span>
-            ) : (
-              <Link to={c.href} className="truncate hover:text-foreground hover:underline">
-                {c.label}
-              </Link>
-            )}
-          </li>
-        ))}
-      </ol>
+    <nav aria-label="Breadcrumb" className="hidden min-w-0 md:flex items-center">
+      {pathname === "/dashboard" ? (
+        <div className="flex items-baseline text-sm text-muted-foreground">
+          Welcome to <span className="ml-1.5 text-2xl font-bold text-foreground tracking-tight">Learn</span><span className="text-2xl font-bold text-brand tracking-tight">ify</span>
+        </div>
+      ) : (
+        <ol className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+          {crumbs.map((c, i) => (
+            <li key={c.href} className="flex min-w-0 items-center gap-1.5">
+              {i > 0 ? <span aria-hidden="true">/</span> : null}
+              {i === crumbs.length - 1 ? (
+                <span className="truncate font-medium text-foreground">{c.label}</span>
+              ) : (
+                <Link to={c.href} className="truncate hover:text-foreground hover:underline">
+                  {c.label}
+                </Link>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
     </nav>
   );
 }
@@ -409,13 +429,14 @@ export function AppShell({
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
-      <aside className="fixed inset-y-0 left-0 hidden w-60 border-r border-sidebar-border lg:block">
+    <div className="min-h-screen bg-background flex">
+      <aside className="fixed inset-y-0 left-0 hidden w-64 lg:block">
         <SidebarContent role={role} onOpenSwitcher={() => setStudentSwitcherOpen(true)} />
       </aside>
 
-      <div className="lg:pl-60">
-        <header className="sticky top-0 z-30 flex h-13 items-center gap-3 border-b border-border bg-card px-4 py-2.5">
+      <div className="lg:pl-64 p-4 h-screen w-full flex overflow-hidden">
+        <div className="bg-card w-full h-full rounded-[2rem] shadow-lg flex flex-col overflow-hidden">
+          <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 px-6 py-4 bg-card">
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open navigation">
@@ -491,7 +512,8 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6">{children}</main>
+          <main className="flex-1 overflow-y-auto px-6 py-5 sm:px-10">{children}</main>
+        </div>
       </div>
 
       <SearchCommand open={open} setOpen={setOpen} />

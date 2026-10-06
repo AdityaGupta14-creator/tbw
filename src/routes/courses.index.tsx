@@ -195,10 +195,11 @@ function CoursesPage() {
                       onChange={(e) => setCourseDept(e.target.value)}
                       className="flex h-8 w-full rounded-md border border-input bg-transparent px-2.5 py-1 text-xs"
                     >
-                      <option value="Computer Engineering">Computer Engineering</option>
-                      <option value="Electrical Engineering">Electrical Engineering</option>
-                      <option value="Mechanical Engineering">Mechanical Engineering</option>
-                      <option value="Civil Engineering">Civil Engineering</option>
+                      <option value="Computer Engineering">CMPN — Computer Engineering</option>
+                      <option value="Information Technology Engineering">IT — Information Technology Engineering</option>
+                      <option value="Electronics and Computer Science Engineering">EXCS — Electronics and Computer Science Engineering</option>
+                      <option value="Electronics and Telecommunication">EXTC — Electronics and Telecommunication</option>
+                      <option value="Biomedical Engineering">BIO — Biomedical Engineering</option>
                     </select>
                   </div>
 
@@ -252,6 +253,7 @@ function CoursesPage() {
             <Th>Course</Th>
             <Th>Department</Th>
             <Th>Section</Th>
+            <Th>Batches</Th>
             <Th numeric>Students</Th>
             <Th numeric>Assignments</Th>
             <Th numeric>Pending</Th>
@@ -269,9 +271,14 @@ function CoursesPage() {
                   {c.code}
                 </Link>
               </Td>
-              <Td className="text-foreground">{c.title}</Td>
-              <Td className="text-muted-foreground">{c.department}</Td>
-              <Td className="num text-muted-foreground">{c.section}</Td>
+              <Td className="text-foreground font-medium">{c.title}</Td>
+              <Td className="text-muted-foreground text-xs">{c.department}</Td>
+              <Td className="num text-muted-foreground font-semibold">Section {c.section}</Td>
+              <Td className="text-xs">
+                <span className="rounded-xs bg-muted px-2 py-0.5 font-medium text-muted-foreground">
+                  Batch 1, 2, 3
+                </span>
+              </Td>
               <Td numeric className="num">
                 {c.students}
               </Td>

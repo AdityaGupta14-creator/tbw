@@ -48,14 +48,16 @@ export function Td({
   className,
   numeric,
   onClick,
+  colSpan,
 }: {
   children: ReactNode;
   className?: string;
   numeric?: boolean;
   onClick?: React.MouseEventHandler<HTMLTableCellElement>;
+  colSpan?: number;
 }) {
   return (
-    <td onClick={onClick} className={cn("border-b border-border px-3 py-2 align-middle", numeric && "text-right", className)}>
+    <td colSpan={colSpan} onClick={onClick} className={cn("border-b border-border px-3 py-2 align-middle", numeric && "text-right", className)}>
       {children}
     </td>
   );

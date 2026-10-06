@@ -14,97 +14,190 @@ import {
   Upload,
   UserCheck,
   Users,
+  Bell,
+  CheckCheck,
+  Check,
+  ExternalLink,
+  BookOpen,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/page-header";
 import { StatBar } from "@/components/stat-bar";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import { assignments, submissions as mockSubmissions } from "@/lib/mock-data";
+import { assignments as initialAssignments, submissions as mockSubmissions } from "@/lib/mock-data";
 import { useStudentSession } from "@/lib/student-session";
 import { verityApi } from "@/services/verity-api";
 import { StudentSwitcherDialog } from "@/components/student-switcher-dialog";
 import { formatInstitutionalDateTime } from "@/lib/formatters";
-import type { StudentNotification } from "@/types/database";
-import { Bell, CheckCheck, Check, ExternalLink } from "lucide-react";
+import type { StudentNotification, Assignment } from "@/types/database";
 
 export const Route = createFileRoute("/student/")({
   head: () => ({
     meta: [
-      { title: "Student Portal — Verity" },
+      { title: "Student Academic Dashboard — Verity" },
       {
         name: "description",
         content: "Student assignment submission dashboard, academic integrity status, and faculty feedback.",
       },
-      { property: "og:title", content: "Student Portal — Verity" },
+      { property: "og:title", content: "Student Academic Dashboard — Verity" },
     ],
   }),
   component: StudentDashboardPage,
 });
 
+interface UpcomingItem {
+  id: string;
+  title: string;
+  subject: string;
+  courseCode: string;
+  dueFormatted: string;
+  isPastDue: boolean;
+  citationStyle: string;
+}
+
+interface SubmittedItem {
+  id: string;
+  rawId: string;
+  assignment: string;
+  subject: string;
+  courseCode: string;
+  submitted: string;
+  similarity: number;
+  status: "Submitted" | "Under Review" | "Reviewed";
+  badgeTone?: "review" | "reviewed" | "pending";
+}
+
 function StudentDashboardPage() {
   const { currentStudent } = useStudentSession();
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  const [liveSubmissions, setLiveSubmissions] = useState<any[]>([]);
+  const [upcomingList, setUpcomingList] = useState<UpcomingItem[]>([]);
+  const [liveSubmissions, setLiveSubmissions] = useState<SubmittedItem[]>([]);
   const [notifications, setNotifications] = useState<StudentNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const upcoming = assignments.slice(0, 3);
-
-  // Fetch submissions and notifications specifically for the active student
+  // Fetch assignments, submissions, and notifications specifically for the active student
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
 
     Promise.all([
+      verityApi.assignments.list(),
       verityApi.submissions.list(),
       verityApi.notifications.list(currentStudent.id),
-    ]).then(([dbList, notifs]) => {
+    ]).then(([dbAssignments, dbSubmissions, notifs]) => {
       if (!isMounted) return;
 
       if (notifs) {
         setNotifications(notifs);
       }
 
-      const studentSubs = (dbList || []).filter(
-        (s) =>
-          s.student_id === currentStudent.id ||
-          s.student_roll?.toLowerCase() === currentStudent.roll_number?.toLowerCase() ||
-          s.student_name?.toLowerCase() === currentStudent.full_name?.toLowerCase()
-      );
+      // 1. Identify all submissions for the active student from the canonical store
+      const allSubs = dbSubmissions && dbSubmissions.length > 0 ? dbSubmissions : [];
+      const studentSubs = allSubs.filter((s) => {
+        const matchesId = !s.student_id || s.student_id === currentStudent.id;
+        const matchesRoll =
+          !s.student_roll ||
+          !currentStudent.roll_number ||
+          s.student_roll.trim().toLowerCase() === currentStudent.roll_number.trim().toLowerCase();
+        
+        const hasExplicitMatch =
+          (s.student_id && s.student_id === currentStudent.id) ||
+          (s.student_roll &&
+            currentStudent.roll_number &&
+            s.student_roll.trim().toLowerCase() === currentStudent.roll_number.trim().toLowerCase());
 
-      if (studentSubs.length > 0) {
-        setLiveSubmissions(
-          studentSubs.map((s) => ({
-            id: s.submission_code || s.id,
-            rawId: s.id,
-            assignment: s.assignment_title || "Technical Report",
-            courseCode: s.course_code || "ENG-CSE-301",
-            submitted: formatInstitutionalDateTime(s.submitted_at),
-            similarity: s.similarity_percentage ?? 0,
-            status: s.status === "needs_review" ? "review" : s.status === "reviewed" ? "reviewed" : "pending",
-          }))
-        );
-      } else {
-        // Fallback for default student (Riya Sharma) or empty for new student
-        if (currentStudent.roll_number === "22CSE057") {
-          setLiveSubmissions(
-            mockSubmissions
-              .filter((s) => s.roll === "22CSE057")
-              .map((s) => ({
-                id: s.id,
-                rawId: s.id,
-                assignment: s.assignment,
-                courseCode: s.courseCode,
-                submitted: s.submitted,
-                similarity: s.similarity,
-                status: s.status,
-              }))
-          );
-        } else {
-          setLiveSubmissions([]);
+        return hasExplicitMatch && matchesId && matchesRoll;
+      });
+
+      // Track which assignments have been submitted by this student
+      const submittedIds = new Set<string>();
+      const submittedTitles = new Set<string>();
+      studentSubs.forEach((s) => {
+        if (s.assignment_id) submittedIds.add(s.assignment_id.toLowerCase());
+        const t = s.assignment_title || (s as any).assignment;
+        if (t) submittedTitles.add(t.trim().toLowerCase());
+      });
+
+      // 2. Identify all active assignments
+      const allAsgList: any[] =
+        dbAssignments && dbAssignments.length > 0 ? dbAssignments : initialAssignments;
+
+      // 3. Format submitted items with institutional status
+      const mappedSubmissions: SubmittedItem[] = studentSubs.map((s) => {
+        let displayStatus: "Submitted" | "Under Review" | "Reviewed" = "Submitted";
+        let badgeTone: "review" | "reviewed" | "pending" = "pending";
+
+        if (s.status === "reviewed") {
+          displayStatus = "Reviewed";
+          badgeTone = "reviewed";
+        } else if (s.status === "needs_review" || (s.status as string) === "in_review") {
+          displayStatus = "Under Review";
+          badgeTone = "review";
         }
-      }
+
+        const asgTitle = s.assignment_title || (s as any).assignment || "Technical Report";
+        const matched = allAsgList.find(
+          (a) =>
+            a.id?.toLowerCase() === s.assignment_id?.toLowerCase() ||
+            a.title?.trim().toLowerCase() === asgTitle.trim().toLowerCase()
+        );
+
+        return {
+          id: s.submission_code || s.id,
+          rawId: s.id,
+          assignment: asgTitle,
+          subject: (s as any).subject || matched?.subject || "Technical and Business Writing",
+          courseCode: s.course_code || matched?.courseCode || matched?.course_code || "EXCS-B",
+          submitted: formatInstitutionalDateTime(s.submitted_at),
+          similarity: s.similarity_percentage ?? 0,
+          status: displayStatus,
+          badgeTone,
+        };
+      });
+      setLiveSubmissions(mappedSubmissions);
+
+      // 4. Derive UPCOMING assignments:
+      // REQUIREMENT 9: Once a student submits an assignment successfully,
+      // it MUST NOT appear in "Upcoming Assignments"!
+      const remainingUpcoming: UpcomingItem[] = allAsgList
+        .filter((a) => {
+          const id = (a.id || "").toLowerCase();
+          const title = (a.title || "").trim().toLowerCase();
+          const isSubmitted = submittedIds.has(id) || submittedTitles.has(title);
+          return !isSubmitted;
+        })
+        .map((a) => {
+          const rawDue = a.due_date || a.due || "05 Oct 2026, 11:59 PM";
+          let isPastDue = false;
+          let formattedDue = rawDue;
+
+          const parsed = Date.parse(rawDue);
+          if (!isNaN(parsed)) {
+            const d = new Date(parsed);
+            isPastDue = d.getTime() < Date.now();
+            formattedDue = d.toLocaleString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            });
+          }
+
+          return {
+            id: a.id,
+            title: a.title,
+            subject: a.subject || "Technical and Business Writing",
+            courseCode: a.course_code || a.courseCode || "EXCS-B",
+            dueFormatted: formattedDue,
+            isPastDue,
+            citationStyle: a.citation_style || a.citationStyle || "Normal",
+          };
+        });
+
+      setUpcomingList(remainingUpcoming);
       setLoading(false);
     });
 
@@ -131,7 +224,7 @@ function StudentDashboardPage() {
     <AppShell role="student">
       <PageHeader
         title="Student Academic Dashboard"
-        subtitle={`${currentStudent.full_name} · Roll No: ${currentStudent.roll_number} · ${currentStudent.department_name || "Department of Computer Engineering"}`}
+        subtitle={`${currentStudent.full_name} · Roll No: ${currentStudent.roll_number} · ${currentStudent.department_name || "Department of Electronics and Computer Science Engineering"} (Section ${currentStudent.section || "B"}, ${currentStudent.batch || "Batch 3"})`}
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -158,10 +251,10 @@ function StudentDashboardPage() {
             <UserCheck className="mt-0.5 size-4 shrink-0 text-brand" />
             <div>
               <span className="font-semibold text-foreground">
-                Active Student Profile: {currentStudent.full_name} ({currentStudent.roll_number})
+                Active Student: {currentStudent.full_name} ({currentStudent.roll_number}) · {currentStudent.course_code || "EXCS-B"} ({currentStudent.batch || "Batch 3"})
               </span>
               <p className="mt-0.5 text-foreground/80 leading-relaxed">
-                Coursework submitted from this terminal is registered under your institutional identity and checked against IEEE standards and university archives.
+                Institutional Email: <span className="font-mono">{currentStudent.email}</span> · Submissions are checked for similarity against college repositories and academic sources.
               </p>
             </div>
           </div>
@@ -171,7 +264,7 @@ function StudentDashboardPage() {
             className="h-7 text-xs bg-background shrink-0"
             onClick={() => setSwitcherOpen(true)}
           >
-            Not {currentStudent.full_name.split(" ")[0]}? Switch
+            Switch Profile
           </Button>
         </div>
       </div>
@@ -179,9 +272,10 @@ function StudentDashboardPage() {
       <div className="mt-5">
         <StatBar
           stats={[
-            { label: "Enrolled Courses", value: "5" },
-            { label: "Active Submissions", value: String(liveSubmissions.length) },
-            { label: "Integrity Standing", value: "Verified", tone: "success" },
+            { label: "Enrolled Course", value: currentStudent.course_code || "EXCS-B" },
+            { label: "Assigned Batch", value: currentStudent.batch || "Batch 3" },
+            { label: "Pending Deadlines", value: String(upcomingList.length) },
+            { label: "Submitted Work", value: String(liveSubmissions.length) },
             {
               label: "Mean Similarity",
               value:
@@ -282,47 +376,66 @@ function StudentDashboardPage() {
 
       {/* Two Column Layout: Upcoming Assignments & Recent Submissions */}
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Left Column: Upcoming Deadlines */}
-        <section className="rounded-md border border-border bg-card p-5 shadow-xs">
+        {/* Left Column: Upcoming Assignments */}
+        <section className="rounded-md border border-border bg-card p-5 shadow-xs flex flex-col">
           <div className="flex items-center justify-between border-b border-border pb-3">
             <div className="flex items-center gap-2">
               <Clock className="size-4 text-brand" />
-              <h2 className="font-semibold text-foreground text-sm">Upcoming Course Deadlines</h2>
+              <h2 className="font-semibold text-foreground text-sm">Upcoming Assignments</h2>
             </div>
             <Link to="/student/assignments" className="text-xs text-brand hover:underline font-medium">
-              View all
+              View all ({upcomingList.length})
             </Link>
           </div>
 
-          <div className="mt-3.5 divide-y divide-border">
-            {upcoming.map((a) => (
-              <div key={a.id} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-medium text-foreground text-xs">{a.title}</p>
-                  <p className="text-[11px] text-muted-foreground num">
-                    {a.courseCode} · Due {a.due}
-                  </p>
-                  <span className="mt-1 inline-block text-[10px] rounded-xs bg-muted px-1.5 py-0.5 text-muted-foreground">
-                    Citation style: {a.citationStyle}
-                  </span>
+          {upcomingList.length === 0 ? (
+            <div className="py-12 text-center text-xs text-muted-foreground flex-1 flex flex-col items-center justify-center">
+              <CheckCircle2 className="size-8 text-success/80 mb-2" />
+              <p className="font-medium text-foreground">All assignments submitted!</p>
+              <p className="mt-1">No pending coursework deadlines remaining on your schedule.</p>
+            </div>
+          ) : (
+            <div className="mt-3.5 divide-y divide-border flex-1">
+              {upcomingList.slice(0, 5).map((a) => (
+                <div key={a.id} className="py-3 first:pt-0 last:pb-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-foreground text-xs">{a.title}</p>
+                    <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
+                      {a.subject} · <span className="font-semibold text-brand">{a.courseCode}</span>
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]">
+                      <span className="text-muted-foreground font-medium">
+                        Due: <strong className="num text-foreground">{a.dueFormatted}</strong>
+                      </span>
+                      <span
+                        className={`inline-block rounded-xs px-1.5 py-0.5 text-[10px] font-medium border ${
+                          a.isPastDue
+                            ? "bg-red-50 text-danger border-red-200"
+                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        }`}
+                      >
+                        Status: {a.isPastDue ? "Past Due" : "Upcoming"}
+                      </span>
+                    </div>
+                  </div>
+                  <Button asChild size="sm" variant="outline" className="h-7 text-xs shrink-0 self-end sm:self-center">
+                    <Link to="/student/assignments">
+                      <Upload className="mr-1.5 size-3" /> Submit
+                    </Link>
+                  </Button>
                 </div>
-                <Button asChild size="sm" variant="outline" className="h-7 text-xs shrink-0">
-                  <Link to="/student/assignments">
-                    Submit Work
-                  </Link>
-                </Button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
 
-        {/* Right Column: Recent Submissions & Returned Feedback */}
-        <section className="rounded-md border border-border bg-card p-5 shadow-xs">
+        {/* Right Column: Recent Submissions & Evaluated Work */}
+        <section className="rounded-md border border-border bg-card p-5 shadow-xs flex flex-col">
           <div className="flex items-center justify-between border-b border-border pb-3">
             <div className="flex items-center gap-2">
               <FileText className="size-4 text-brand" />
               <h2 className="font-semibold text-foreground text-sm">
-                Submissions by {currentStudent.full_name} ({liveSubmissions.length})
+                Recent Submissions ({liveSubmissions.length})
               </h2>
             </div>
             <Link to="/student/submissions" className="text-xs text-brand hover:underline font-medium">
@@ -331,8 +444,10 @@ function StudentDashboardPage() {
           </div>
 
           {liveSubmissions.length === 0 ? (
-            <div className="py-8 text-center text-xs text-muted-foreground">
-              <p>No coursework submitted under this student profile yet.</p>
+            <div className="py-12 text-center text-xs text-muted-foreground flex-1 flex flex-col items-center justify-center">
+              <FileText className="size-8 text-muted-foreground/50 mb-2" />
+              <p className="font-medium text-foreground">No submissions recorded yet</p>
+              <p className="mt-1">Uploaded reports will appear here after verification.</p>
               <Button asChild size="sm" className="mt-3 text-xs">
                 <Link to="/student/assignments">
                   <Upload className="mr-1.5 size-3.5" /> Submit First Document
@@ -340,25 +455,36 @@ function StudentDashboardPage() {
               </Button>
             </div>
           ) : (
-            <div className="mt-3.5 divide-y divide-border">
-              {liveSubmissions.slice(0, 4).map((s) => (
-                <div key={s.id} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-medium text-foreground text-xs">{s.assignment}</p>
-                    <p className="text-[11px] text-muted-foreground num">
-                      {s.courseCode} · Receipt: {s.id}
+            <div className="mt-3.5 divide-y divide-border flex-1">
+              {liveSubmissions.slice(0, 5).map((s) => (
+                <div key={s.id} className="py-3 first:pt-0 last:pb-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-foreground text-xs">{s.assignment}</p>
+                    <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
+                      {s.subject} · <span className="font-semibold text-brand">{s.courseCode}</span>
                     </p>
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <StatusBadge status={s.status} />
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <span
+                        className={`inline-block rounded-xs px-1.5 py-0.5 text-[10px] font-medium border ${
+                          s.status === "Reviewed"
+                            ? "bg-blue-50 text-blue-700 border-blue-200"
+                            : "bg-amber-50 text-amber-700 border-amber-200"
+                        }`}
+                      >
+                        Status: {s.status}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground num">
+                        Submitted: {s.submitted}
+                      </span>
                       <span className="text-[11px] text-muted-foreground">
-                        Similarity: <strong className="num text-foreground">{s.similarity}%</strong>
+                        · Similarity: <strong className="num text-foreground">{s.similarity}%</strong>
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
                     <Button asChild size="sm" variant="outline" className="h-7 text-xs">
                       <Link to="/submissions/$submissionId" params={{ submissionId: s.id }}>
-                        <Eye className="mr-1 size-3.5 text-brand" /> Report
+                        <Eye className="mr-1 size-3.5 text-brand" /> View Result
                       </Link>
                     </Button>
                   </div>

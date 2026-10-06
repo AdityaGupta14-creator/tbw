@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/page-header";
 import { TableShell, Th, Td, Tr, FilterBar, SelectFilter } from "@/components/data-table";
@@ -52,15 +52,16 @@ function AssignmentsPage() {
     if (loaderData?.assignments && loaderData.assignments.length > 0) {
       const mapped: MockAssignment[] = loaderData.assignments.map((a: any) => ({
         id: a.id,
-        courseCode: a.course_code || "ENG-CSE-301",
+        courseCode: a.course_code || "EXCS-B",
         title: a.title,
+        subject: a.subject || "Technical and Business Writing",
         type: a.assignment_type || "Technical Report",
         due: formatDue(a.due_date),
         submitted: a.submitted_count || 0,
-        total: a.total_students || 64,
+        total: a.total_students || 5,
         avgSimilarity: a.avg_similarity || 0,
         pending: a.pending_count || 0,
-        citationStyle: a.citation_style || "IEEE",
+        citationStyle: a.citation_style || "Normal",
       }));
       const dbTitles = new Set(mapped.map((m) => m.title.trim().toLowerCase()));
       const dbIds = new Set(mapped.map((m) => m.id));
@@ -88,9 +89,9 @@ function AssignmentsPage() {
           id: c.id,
           code: c.course_code,
           title: c.name,
-          department: c.department_name || "Computer Engineering",
-          section: c.section || "A",
-          students: c.student_count || 64,
+          department: c.department_name || "Electronics and Computer Science Engineering",
+          section: c.section || "B",
+          students: c.student_count || 5,
           assignments: c.assignment_count || 0,
           pending: c.pending_count || 0,
         })));
@@ -109,19 +110,20 @@ function AssignmentsPage() {
                   month: "short",
                   year: "numeric",
                 })
-            : "24 Oct 2026";
+            : "05 Oct 2026, 11:59 PM";
 
           return {
             id: a.id,
-            courseCode: a.course_code || "ENG-CSE-301",
+            courseCode: a.course_code || "EXCS-B",
             title: a.title,
+            subject: a.subject || "Technical and Business Writing",
             type: a.assignment_type || "Technical Report",
             due: formattedDue,
             submitted: a.submitted_count || 0,
-            total: a.total_students || 64,
+            total: a.total_students || 5,
             avgSimilarity: a.avg_similarity || 0,
             pending: a.pending_count || 0,
-            citationStyle: a.citation_style || "IEEE",
+            citationStyle: a.citation_style || "Normal",
           };
         });
 
@@ -147,6 +149,18 @@ function AssignmentsPage() {
       (course === "All courses" || a.courseCode === course) &&
       (type === "All types" || a.type === type),
   );
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    if (confirm("Are you sure you want to delete this assignment?")) {
+      try {
+        await verityApi.assignments.delete(id);
+        setAssignmentList((prev) => prev.filter((a) => a.id !== id));
+      } catch (err) {
+        console.error("Failed to delete assignment", err);
+        alert("Failed to delete assignment");
+      }
+    }
+  };
 
 
   return (
@@ -175,12 +189,14 @@ function AssignmentsPage() {
         <thead>
           <tr>
             <Th>Assignment</Th>
+            <Th>Subject</Th>
             <Th>Course</Th>
-            <Th>Type</Th>
-            <Th>Due</Th>
+            <Th>Due Date</Th>
+            <Th>Citation Style</Th>
             <Th numeric>Submissions</Th>
             <Th numeric>Similarity</Th>
             <Th numeric>Pending</Th>
+            <Th></Th>
           </tr>
         </thead>
         <tbody>
@@ -194,10 +210,22 @@ function AssignmentsPage() {
                 >
                   {a.title}
                 </Link>
+                <div className="text-[11px] text-muted-foreground">{a.type}</div>
               </Td>
-              <Td className="num text-muted-foreground">{a.courseCode}</Td>
-              <Td className="text-muted-foreground">{a.type}</Td>
-              <Td className="num text-muted-foreground">{a.due}</Td>
+              <Td className="text-xs text-foreground font-medium">{a.subject || "Technical and Business Writing"}</Td>
+              <Td className="num text-muted-foreground font-semibold">{a.courseCode}</Td>
+              <Td className="num text-muted-foreground text-xs whitespace-nowrap">{a.due}</Td>
+              <Td className="text-xs">
+                <span
+                  className={`rounded-xs px-1.5 py-0.5 font-medium border text-[11px] ${
+                    a.citationStyle === "Normal"
+                      ? "bg-muted text-foreground border-border"
+                      : "bg-brand/10 text-brand border-brand/20"
+                  }`}
+                >
+                  {a.citationStyle}
+                </span>
+              </Td>
               <Td numeric className="num">
                 {a.submitted} / {a.total}
               </Td>
@@ -206,6 +234,11 @@ function AssignmentsPage() {
               </Td>
               <Td numeric className="num">
                 {a.pending}
+              </Td>
+              <Td>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-danger" onClick={(e) => handleDelete(a.id, e)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </Td>
             </Tr>
           ))}

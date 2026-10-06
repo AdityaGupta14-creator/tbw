@@ -1776,6 +1776,7 @@ class DatabaseManager {
   public async submitDocument(params: {
     assignmentId: string;
     file: File;
+    studentId?: string | undefined;
     studentRoll?: string | undefined;
     studentName?: string | undefined;
     onProgress?: ((stage: string) => void) | undefined;
@@ -1792,7 +1793,7 @@ class DatabaseManager {
         assignment_title: assignment.title,
         course_id: assignment.course_id,
         course_code: assignment.course_code,
-        student_id: this.state.currentUser.id,
+        student_id: params.studentId || this.state.currentUser.id,
         student_name: params.studentName || this.state.currentUser.full_name || "Riya Sharma",
         student_roll: params.studentRoll || this.state.currentUser.roll_number || "22CSE057",
         version_number: 1,
@@ -1832,7 +1833,7 @@ class DatabaseManager {
       assignment_title: assignment.title,
       course_id: assignment.course_id,
       course_code: assignment.course_code,
-      student_id: this.state.currentUser.id,
+      student_id: params.studentId || this.state.currentUser.id,
       student_name: params.studentName || this.state.currentUser.full_name || "Riya Sharma",
       student_roll: params.studentRoll || this.state.currentUser.roll_number || "22CSE057",
       version_number: 1,

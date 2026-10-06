@@ -5,18 +5,17 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Verity — Academic Integrity Platform design system.
- * Institutional, restrained: deep navy, slate, professional blue.
- * All colors are oklch tokens. Never hardcode colors in components.
+ * Learnify Design System
  */
 
 @theme inline {
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Kodchasan", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
+  --radius-2xl: calc(var(--radius) + 16px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -68,68 +67,77 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-purple: var(--purple);
+  --color-yellow: var(--yellow);
+  --color-orange: var(--orange);
+  --color-dark: var(--dark);
 }
 
 :root {
-  --radius: 0.375rem;
-  --background: oklch(0.975 0.002 250);
-  --foreground: oklch(0.24 0.028 258);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.24 0.028 258);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.24 0.028 258);
+  --radius: 1rem;
+  --background: #cadfe6;
+  --foreground: #151313;
+  --card: #f7f7f5;
+  --card-foreground: #151313;
+  --popover: #f7f7f5;
+  --popover-foreground: #151313;
 
-  --navy: oklch(0.27 0.045 258);
-  --navy-foreground: oklch(0.97 0.004 250);
-  --brand: oklch(0.52 0.128 251);
-  --brand-foreground: oklch(0.99 0.002 250);
-  --brand-soft: oklch(0.955 0.022 251);
+  --navy: #151313;
+  --navy-foreground: #f7f7f5;
+  --brand: #ff5734;
+  --brand-foreground: #ffffff;
+  --brand-soft: #ffe8e4;
 
-  --primary: oklch(0.27 0.045 258);
-  --primary-foreground: oklch(0.975 0.004 250);
-  --secondary: oklch(0.955 0.005 250);
-  --secondary-foreground: oklch(0.3 0.03 258);
-  --muted: oklch(0.962 0.004 250);
-  --muted-foreground: oklch(0.52 0.02 256);
-  --accent: oklch(0.955 0.012 251);
-  --accent-foreground: oklch(0.3 0.045 258);
+  --primary: #151313;
+  --primary-foreground: #f7f7f5;
+  --secondary: #fccc42;
+  --secondary-foreground: #151313;
+  --muted: #e2e8f0;
+  --muted-foreground: #64748b;
+  --accent: #be94f5;
+  --accent-foreground: #151313;
 
-  --success: oklch(0.52 0.11 155);
-  --success-foreground: oklch(0.99 0.002 250);
-  --success-soft: oklch(0.955 0.03 155);
-  --warning: oklch(0.6 0.12 72);
-  --warning-foreground: oklch(0.22 0.03 72);
-  --warning-soft: oklch(0.96 0.045 85);
-  --danger: oklch(0.52 0.17 26);
-  --danger-foreground: oklch(0.99 0.002 250);
-  --danger-soft: oklch(0.955 0.03 26);
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --success-soft: #d1fae5;
+  --warning: #fccc42;
+  --warning-foreground: #151313;
+  --warning-soft: #fef3c7;
+  --danger: #ef4444;
+  --danger-foreground: #ffffff;
+  --danger-soft: #fee2e2;
 
-  --destructive: oklch(0.52 0.17 26);
-  --destructive-foreground: oklch(0.99 0.002 250);
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
 
-  --highlight-match: oklch(0.93 0.09 90);
-  --highlight-student: oklch(0.91 0.06 250);
-  --highlight-added: oklch(0.93 0.06 155);
-  --highlight-removed: oklch(0.93 0.05 26);
+  --highlight-match: #fef08a;
+  --highlight-student: #bfdbfe;
+  --highlight-added: #bbf7d0;
+  --highlight-removed: #fecaca;
 
-  --border: oklch(0.905 0.006 250);
-  --input: oklch(0.9 0.006 250);
-  --ring: oklch(0.52 0.128 251);
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #ff5734;
 
-  --chart-1: oklch(0.52 0.128 251);
-  --chart-2: oklch(0.63 0.06 250);
-  --chart-3: oklch(0.6 0.12 72);
-  --chart-4: oklch(0.52 0.11 155);
-  --chart-5: oklch(0.52 0.17 26);
+  --chart-1: #ff5734;
+  --chart-2: #fccc42;
+  --chart-3: #be94f5;
+  --chart-4: #4ade80;
+  --chart-5: #38bdf8;
 
-  --sidebar: oklch(0.245 0.038 258);
-  --sidebar-foreground: oklch(0.86 0.012 250);
-  --sidebar-primary: oklch(0.6 0.14 251);
-  --sidebar-primary-foreground: oklch(0.99 0.002 250);
-  --sidebar-accent: oklch(0.31 0.04 258);
-  --sidebar-accent-foreground: oklch(0.97 0.004 250);
-  --sidebar-border: oklch(0.33 0.032 258);
-  --sidebar-ring: oklch(0.6 0.14 251);
+  --sidebar: #151313;
+  --sidebar-foreground: #f7f7f5;
+  --sidebar-primary: #ff5734;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #333333;
+  --sidebar-accent-foreground: #f7f7f5;
+  --sidebar-border: #333333;
+  --sidebar-ring: #ff5734;
+
+  --purple: #be94f5;
+  --yellow: #fccc42;
+  --orange: #ff5734;
+  --dark: #151313;
 }
 
 @layer base {
@@ -143,6 +151,7 @@
     font-family: var(--font-sans);
     font-size: 0.875rem;
     -webkit-font-smoothing: antialiased;
+    padding: 1rem; /* Added padding to give the outer blue-grey background */
   }
 
   :focus-visible {

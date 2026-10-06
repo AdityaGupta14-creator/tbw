@@ -51,8 +51,20 @@ export function SubmissionOverviewTab({
 }: SubmissionOverviewTabProps) {
   const [technicalDetailsOpen, setTechnicalDetailsOpen] = useState(false);
 
-  const similarityScore =
-    liveAnalysis?.similarity_percentage ?? submission.similarity ?? 0;
+  const rawSimilarityScore = liveAnalysis?.similarity_percentage ?? submission.similarity ?? 0;
+  
+  // Compute perfect overlap directly from evidence passages
+  let computedSimilarity = rawSimilarityScore;
+  if (activePassages && activePassages.length > 0 && proseWordCount > 0) {
+    const totalEvidenceWords = activePassages.reduce((sum, item) => sum + (item.matched_words || 36), 0);
+    // Calculate evidence-backed overlap, ensuring it doesn't drop below the persisted score
+    computedSimilarity = Math.max(
+      rawSimilarityScore,
+      Math.min(100, Math.round((totalEvidenceWords / proseWordCount) * 100))
+    );
+  }
+
+  const similarityScore = Math.min(100, Math.round(Number(computedSimilarity)));
   const matchedSourcesCount =
     submission.matchedSources ?? liveAnalysis?.matched_source_count ?? 0;
   const flaggedPassagesCount = activePassages.length;

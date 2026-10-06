@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/page-header";
 import { StatBar } from "@/components/stat-bar";
@@ -95,6 +95,19 @@ export const Route = createFileRoute("/assignments/$assignmentId")({
 function AssignmentDetail() {
   const { assignment, submissions: rows } = Route.useLoaderData();
 
+  const navigate = useNavigate();
+
+  const handleDelete = async () => {
+    if (confirm("Are you sure you want to delete this assignment?")) {
+      try {
+        await verityApi.assignments.delete(assignment.id);
+        navigate({ to: "/assignments" });
+      } catch (err) {
+        console.error("Failed to delete assignment", err);
+        alert("Failed to delete assignment");
+      }
+    }
+  };
 
   return (
     <AppShell>
@@ -103,6 +116,7 @@ function AssignmentDetail() {
         subtitle={`${assignment.courseCode} · ${assignment.type} · Due ${assignment.due} · Citation style ${assignment.citationStyle}`}
         actions={
           <>
+            <Button size="sm" variant="destructive" onClick={handleDelete}>Delete</Button>
             <Button asChild size="sm" variant="outline">
               <Link to="/compare">Compare submissions</Link>
             </Button>

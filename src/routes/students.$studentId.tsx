@@ -44,13 +44,20 @@ export const Route = createFileRoute("/students/$studentId")({
           (s) => s.status === "review" || s.similarity >= 30
         ).length;
 
+        const courseCode = p.course_code || "EXCS-B";
+        const section = p.section || (courseCode.includes("-") ? courseCode.split("-")[1] : "B") || "B";
+        const batch = p.batch || "Batch 3";
+        const department = p.department_name || "Electronics and Computer Science Engineering";
+
         return {
           student: {
             id: p.id,
             name: p.full_name,
-            roll: p.roll_number || "22CSE",
-            courseCode: p.department_name || "Computer Engineering",
-            section: "A",
+            roll: p.roll_number || "25108B0071",
+            courseCode,
+            department,
+            section,
+            batch,
             submissions: studentSubs.length,
             avgSimilarity: avgSim,
             flagged: flaggedCount,
@@ -130,12 +137,19 @@ function StudentDetailPage() {
         ).length;
 
         if (isMounted) {
+          const courseCode = p.course_code || "EXCS-B";
+          const section = p.section || (courseCode.includes("-") ? courseCode.split("-")[1] : "B") || "B";
+          const batch = p.batch || "Batch 3";
+          const department = p.department_name || "Electronics and Computer Science Engineering";
+
           setStudent({
             id: p.id,
             name: p.full_name,
-            roll: p.roll_number || "22CSE",
-            courseCode: p.department_name || "Computer Engineering",
-            section: "A",
+            roll: p.roll_number || "25108B0071",
+            courseCode,
+            department,
+            section,
+            batch,
             submissions: mappedSubs.length,
             avgSimilarity: avgSim,
             flagged: flaggedCount,
@@ -171,7 +185,7 @@ function StudentDetailPage() {
               </span>
             </div>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {student.courseCode} · Section {student.section} · {student.email}
+              {student.department || "Electronics and Computer Science Engineering"} · <span className="font-semibold text-brand">{student.courseCode || "EXCS-B"}</span> (Section {student.section || "B"}) · <span className="font-semibold text-brand">{student.batch || "Batch 3"}</span> · <span className="font-mono text-foreground/80">{student.email}</span>
             </p>
           </div>
 

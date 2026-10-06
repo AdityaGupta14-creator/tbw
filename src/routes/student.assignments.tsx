@@ -14,6 +14,7 @@ import {
   Users,
   X,
   Loader2,
+  BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
@@ -27,11 +28,12 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { assignments, type Assignment } from "@/lib/mock-data";
+import { assignments as mockAssignments, type Assignment as MockAssignment } from "@/lib/mock-data";
 import { useStudentSession } from "@/lib/student-session";
 import { verityApi } from "@/services/verity-api";
 import { StudentSwitcherDialog } from "@/components/student-switcher-dialog";
 import { formatInstitutionalDateTime } from "@/lib/formatters";
+import type { Submission } from "@/types/database";
 
 export const Route = createFileRoute("/student/assignments")({
   head: () => ({
@@ -39,7 +41,7 @@ export const Route = createFileRoute("/student/assignments")({
       { title: "Student Assignments — Verity" },
       {
         name: "description",
-        content: "View pending academic coursework and submit laboratory reports, technical analyses, and research papers.",
+        content: "View active academic coursework and submit laboratory reports, technical analyses, and research papers.",
       },
       { property: "og:title", content: "Assignments — Student Portal" },
     ],
@@ -51,6 +53,7 @@ type DisplayAssignment = {
   id: string;
   courseCode: string;
   title: string;
+  subject: string;
   type: string;
   due: string;
   submitted: number;
@@ -58,6 +61,14 @@ type DisplayAssignment = {
   avgSimilarity: number;
   pending: number;
   citationStyle: string;
+  // Submission status specific to active student
+  studentSubmission?: {
+    id: string;
+    submittedAt: string;
+    similarity: number;
+    status: "Submitted" | "Under Review" | "Reviewed";
+    rawStatus: string;
+  } | undefined;
 };
 
 interface SubmittedReceiptData {
@@ -76,7 +87,7 @@ function StudentAssignmentsPage() {
   const navigate = useNavigate();
   const { currentStudent } = useStudentSession();
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  const [assignmentList, setAssignmentList] = useState<DisplayAssignment[]>(assignments);
+  const [assignmentList, setAssignmentList] = useState<DisplayAssignment[]>([]);
   const [selectedAssignment, setSelectedAssignment] = useState<DisplayAssignment | null>(null);
   const [fileSelected, setFileSelected] = useState<File | null>(null);
   const [declarationChecked, setDeclarationChecked] = useState(false);
@@ -85,32 +96,98 @@ function StudentAssignmentsPage() {
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
   const [submittedReceipt, setSubmittedReceipt] = useState<SubmittedReceiptData | null>(null);
 
-  // Load live assignments from Supabase or fallback
-  useEffect(() => {
-    verityApi.assignments.list().then((list) => {
-      if (list && list.length > 0) {
-        const mapped: DisplayAssignment[] = list.map((a) => ({
+  // Load assignments and match with student's persisted submissions
+  const loadData = async () => {
+    try {
+      const [list, subs] = await Promise.all([
+        verityApi.assignments.list(),
+        verityApi.submissions.list(),
+      ]);
+
+      const studentSubs = (subs || []).filter((s) => {
+        const matchesId = !s.student_id || s.student_id === currentStudent.id;
+        const matchesRoll =
+          !s.student_roll ||
+          !currentStudent.roll_number ||
+          s.student_roll.trim().toLowerCase() === currentStudent.roll_number.trim().toLowerCase();
+        
+        const hasExplicitMatch =
+          (s.student_id && s.student_id === currentStudent.id) ||
+          (s.student_roll &&
+            currentStudent.roll_number &&
+            s.student_roll.trim().toLowerCase() === currentStudent.roll_number.trim().toLowerCase());
+
+        return hasExplicitMatch && matchesId && matchesRoll;
+      });
+
+      const sourceList: any[] = list && list.length > 0 ? list : mockAssignments;
+
+      const mapped: DisplayAssignment[] = sourceList.map((a) => {
+        const rawDue = a.due_date || a.due || "05 Oct 2026, 11:59 PM";
+        let formattedDue = rawDue;
+        const parsed = Date.parse(rawDue);
+        if (!isNaN(parsed)) {
+          const d = new Date(parsed);
+          formattedDue = d.toLocaleString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          });
+        }
+
+        // Find if student submitted this assignment
+        const existingSub = studentSubs.find(
+          (s) =>
+            s.assignment_id?.toLowerCase() === a.id?.toLowerCase() ||
+            (s.assignment_title || (s as any).assignment)?.trim().toLowerCase() ===
+              a.title?.trim().toLowerCase()
+        );
+
+        let studentSubmission: DisplayAssignment["studentSubmission"] | undefined;
+        if (existingSub) {
+          let displayStatus: "Submitted" | "Under Review" | "Reviewed" = "Submitted";
+          if (existingSub.status === "reviewed") {
+            displayStatus = "Reviewed";
+          } else if (existingSub.status === "needs_review" || (existingSub.status as string) === "in_review") {
+            displayStatus = "Under Review";
+          }
+          studentSubmission = {
+            id: existingSub.submission_code || existingSub.id,
+            submittedAt: formatInstitutionalDateTime(existingSub.submitted_at),
+            similarity: existingSub.similarity_percentage ?? 0,
+            status: displayStatus,
+            rawStatus: existingSub.status,
+          };
+        }
+
+        return {
           id: a.id,
-          courseCode: a.course_code || "ENG-CSE-301",
+          courseCode: a.course_code || a.courseCode || "EXCS-B",
           title: a.title,
-          type: a.assignment_type || "Technical Report",
-          due: a.due_date
-            ? new Date(a.due_date).toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })
-            : "24 Oct 2026",
-          submitted: a.submitted_count || 0,
-          total: a.total_students || 64,
-          avgSimilarity: 12,
-          pending: 1,
-          citationStyle: a.citation_style || "IEEE",
-        }));
-        setAssignmentList(mapped);
-      }
-    });
-  }, []);
+          subject: a.subject || "Technical and Business Writing",
+          type: a.assignment_type || a.type || "Technical Report",
+          due: formattedDue,
+          submitted: a.submitted_count ?? a.submitted ?? 0,
+          total: a.total_students ?? a.total ?? 5,
+          avgSimilarity: a.avg_similarity ?? a.avgSimilarity ?? 12,
+          pending: a.pending_count ?? a.pending ?? 1,
+          citationStyle: a.citation_style || a.citationStyle || "Normal",
+          studentSubmission,
+        };
+      });
+
+      setAssignmentList(mapped);
+    } catch (e) {
+      console.warn("Could not load student assignments list:", e);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [currentStudent.id, currentStudent.roll_number]);
 
   const handleOpenSubmit = (a: DisplayAssignment) => {
     setSelectedAssignment(a);
@@ -123,27 +200,32 @@ function StudentAssignmentsPage() {
 
   const handleCreateSamplePdf = () => {
     const sampleText =
-      `ENGINEERING RESEARCH REPORT · DEPARTMENT OF COMPUTER ENGINEERING\n` +
-      `Title: Comparative Analysis of Concurrent B-Tree Indexing and Log-Structured Merge Trees\n` +
+      `VIDYALANKAR INSTITUTE OF TECHNOLOGY · DEPARTMENT OF ELECTRONICS AND COMPUTER SCIENCE\n` +
+      `Course: ${selectedAssignment?.courseCode || "EXCS-B"} (Section B, Batch 3)\n` +
+      `Subject: ${selectedAssignment?.subject || "Technical and Business Writing"}\n` +
+      `Assignment: ${selectedAssignment?.title || "Technical Report"}\n` +
       `Student Author: ${currentStudent.full_name} · Roll No: ${currentStudent.roll_number}\n` +
-      `Course: ${selectedAssignment?.title || "Data Structures"} (${selectedAssignment?.courseCode || "ENG-CSE-301"})\n\n` +
-      `1. Introduction\n` +
-      `Modern data storage architectures require low latency indexing under heavy write workloads. While balanced binary search trees provide O(log n) guarantees in main memory, block-oriented secondary storage introduces distinct cost trade-offs.\n\n` +
-      `2. Methodology & Implementation\n` +
-      `We implemented concurrent B+ tree nodes with optimistic latch coupling and compared write amplification against an append-only LSM tree with tiered compaction. Memory footprint was captured at 100,000 key insertions.\n\n` +
-      `3. Empirical Results\n` +
-      `For uniform random key sequences, LSM trees achieved 3.2x higher write throughput, but suffered higher tail read latency due to multi-level SSTable lookups.\n\n` +
-      `References\n` +
-      `[1] D. Comer, "The Ubiquitous B-Tree," ACM Computing Surveys, vol. 11, no. 2, pp. 121-137, 1979.\n` +
-      `[2] P. O'Neil et al., "The Log-Structured Merge-Tree (LSM-tree)," Acta Informatica, 1996.`;
+      `Institutional Email: ${currentStudent.email}\n\n` +
+      `1. Introduction & Theoretical Context\n` +
+      `Modern engineering systems demand rigorous verification and analytical synthesis across both hardware and software domains.\n` +
+      `This report documents the structural specifications, experimental methodology, and empirical trade-offs evaluated.\n\n` +
+      `2. Design Methodology & Experimental Procedure\n` +
+      `We implemented and simulated the architecture across standard bench test conditions. Signals and parameters were acquired\n` +
+      `with precision sampling intervals to establish repeatability and measure divergence against canonical theoretical expectations.\n\n` +
+      `3. Empirical Results & Findings\n` +
+      `The observed metrics demonstrate high fidelity with minimal distortion. Boundary conditions were verified and validated\n` +
+      `under variable load profiles.\n\n` +
+      `4. References & Bibliography\n` +
+      `[1] A. V. Oppenheim and R. W. Schafer, Discrete-Time Signal Processing, 3rd ed.\n` +
+      `[2] T. H. Cormen, C. E. Leiserson, R. L. Rivest, and C. Stein, Introduction to Algorithms, 3rd ed.`;
 
     const sampleFile = new File(
       [sampleText],
-      `Technical_Report_${currentStudent.roll_number}.pdf`,
-      { type: "application/pdf" }
+      `${(selectedAssignment?.title || "Technical_Report").replace(/\s+/g, "_")}_${currentStudent.roll_number}.txt`,
+      { type: "text/plain" }
     );
     setFileSelected(sampleFile);
-    toast.success("Sample academic engineering report loaded!");
+    toast.success("Institutional sample report loaded for submission!");
   };
 
   const handleRealSubmit = async (e: React.FormEvent) => {
@@ -154,19 +236,20 @@ function StudentAssignmentsPage() {
     }
 
     if (!fileSelected) {
-      toast.error("Please select or upload a document file first (PDF, DOCX, TXT)");
+      toast.error("Please select or generate a document file first");
       return;
     }
 
     setIsProcessing(true);
-    setProcessingStage("Validating document format and constraints...");
+    setProcessingStage("Extracting text and validating document...");
     try {
-      const studentRoll = currentStudent.roll_number || "22CSE057";
-      const studentName = currentStudent.full_name || "Student";
+      const studentRoll = currentStudent.roll_number || "25108B0071";
+      const studentName = currentStudent.full_name || "Aditya Gupta";
 
       const result = await verityApi.submissions.submit({
-        assignmentId: selectedAssignment?.id || "asg-301-02",
+        assignmentId: selectedAssignment?.id || "asg-excs-tbw",
         file: fileSelected,
+        studentId: currentStudent.id,
         studentRoll,
         studentName,
         onProgress: (stage) => setProcessingStage(stage),
@@ -178,7 +261,7 @@ function StudentAssignmentsPage() {
         rawId: result.id,
         time: result.submitted_at ? formatInstitutionalDateTime(result.submitted_at) : "Just now",
         similarity: result.similarity_percentage ?? 0,
-        matchedCount: result.matched_source_count || 3,
+        matchedCount: result.matched_source_count || 0,
         citationIssues: result.citation_issue_count || 0,
         fileName: fileSelected.name,
         studentName,
@@ -189,6 +272,9 @@ function StudentAssignmentsPage() {
       toast.success("Document analyzed and archived successfully!", {
         description: `Receipt: ${receiptId} · Similarity: ${result.similarity_percentage ?? 0}%`,
       });
+
+      // Reload assignments to instantly reflect the submitted state
+      await loadData();
     } catch (err: any) {
       toast.error(err?.message || "Failed to process document");
     } finally {
@@ -200,7 +286,7 @@ function StudentAssignmentsPage() {
     <AppShell role="student">
       <PageHeader
         title="Active Assignments"
-        subtitle={`Coursework, laboratory reports, and technical papers assigned for academic evaluation.`}
+        subtitle="Coursework, laboratory reports, and technical papers assigned for academic evaluation."
         actions={
           <Button
             variant="outline"
@@ -220,7 +306,7 @@ function StudentAssignmentsPage() {
           <div className="flex items-center gap-2">
             <UserCheck className="size-4 shrink-0 text-brand" />
             <span className="font-semibold text-foreground">
-              Submitting as: {currentStudent.full_name} ({currentStudent.roll_number}) · {currentStudent.department_name || "Computer Engineering"}
+              Submitting as: {currentStudent.full_name} ({currentStudent.roll_number}) · {currentStudent.course_code || "EXCS-B"} ({currentStudent.batch || "Batch 3"})
             </span>
           </div>
           <button
@@ -228,7 +314,7 @@ function StudentAssignmentsPage() {
             onClick={() => setSwitcherOpen(true)}
             className="font-medium text-brand hover:underline self-start sm:self-auto"
           >
-            Switch student profile or log out →
+            Switch student profile →
           </button>
         </div>
       </div>
@@ -238,36 +324,84 @@ function StudentAssignmentsPage() {
           <thead>
             <tr>
               <Th>Assignment</Th>
+              <Th>Subject</Th>
               <Th>Course</Th>
-              <Th>Format Type</Th>
-              <Th>Submission Deadline</Th>
-              <Th>Citation Standard</Th>
+              <Th>Deadline</Th>
+              <Th>Citation Style</Th>
+              <Th>Submission Status</Th>
               <Th className="text-right">Action</Th>
             </tr>
           </thead>
           <tbody>
-            {assignmentList.map((a: any) => (
-              <Tr key={a.id}>
-                <Td className="font-medium text-foreground">{a.title}</Td>
-                <Td className="num text-muted-foreground">{a.course_code || a.courseCode}</Td>
-                <Td className="text-muted-foreground">{a.assignment_type || a.type}</Td>
-                <Td className="num text-muted-foreground whitespace-nowrap">{a.due_date || a.due}</Td>
-                <Td className="num text-foreground">
-                  <span className="rounded-xs bg-muted px-1.5 py-0.5 text-xs">
-                    {a.citation_style || a.citationStyle}
-                  </span>
-                </Td>
-                <Td className="text-right">
-                  <Button
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => handleOpenSubmit(a)}
-                  >
-                    <FileUp className="mr-1 size-3.5" /> Submit Work
-                  </Button>
-                </Td>
-              </Tr>
-            ))}
+            {assignmentList.map((a) => {
+              const isSubmitted = !!a.studentSubmission;
+
+              return (
+                <Tr key={a.id}>
+                  <Td className="font-semibold text-foreground text-xs">
+                    {a.title}
+                    <div className="text-[11px] font-normal text-muted-foreground">{a.type}</div>
+                  </Td>
+                  <Td className="text-xs text-foreground font-medium">
+                    {a.subject}
+                  </Td>
+                  <Td className="text-xs num text-brand font-semibold">
+                    {a.courseCode}
+                  </Td>
+                  <Td className="num text-muted-foreground whitespace-nowrap text-xs">
+                    {a.due}
+                  </Td>
+                  <Td className="text-xs">
+                    <span
+                      className={`rounded-xs px-1.5 py-0.5 text-[11px] font-medium border ${
+                        a.citationStyle === "Normal"
+                          ? "bg-muted text-foreground border-border"
+                          : "bg-brand/10 text-brand border-brand/20"
+                      }`}
+                    >
+                      {a.citationStyle}
+                    </span>
+                  </Td>
+                  <Td className="text-xs">
+                    {isSubmitted ? (
+                      <span
+                        className={`inline-block rounded-xs px-2 py-0.5 text-[10px] font-semibold border ${
+                          a.studentSubmission?.status === "Reviewed"
+                            ? "bg-blue-50 text-blue-700 border-blue-200"
+                            : "bg-amber-50 text-amber-700 border-amber-200"
+                        }`}
+                      >
+                        {a.studentSubmission?.status} ({a.studentSubmission?.similarity}%)
+                      </span>
+                    ) : (
+                      <span className="inline-block rounded-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold">
+                        Upcoming
+                      </span>
+                    )}
+                  </Td>
+                  <Td className="text-right">
+                    {isSubmitted ? (
+                      <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+                        <Link
+                          to="/submissions/$submissionId"
+                          params={{ submissionId: a.studentSubmission!.id }}
+                        >
+                          <Eye className="mr-1 size-3 text-brand" /> View Submission
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => handleOpenSubmit(a)}
+                      >
+                        <FileUp className="mr-1 size-3" /> Submit Work
+                      </Button>
+                    )}
+                  </Td>
+                </Tr>
+              );
+            })}
           </tbody>
         </TableShell>
       </div>
@@ -281,10 +415,10 @@ function StudentAssignmentsPage() {
           <DialogContent className="max-w-lg p-6 font-sans">
             <DialogHeader className="border-b border-border pb-3">
               <DialogTitle className="text-lg font-bold text-foreground">
-                {submissionSuccess ? "Submission & Similarity Receipt" : "Submit Coursework"}
+                {submissionSuccess ? "Submission Receipt & Similarity Audit" : "Submit Coursework"}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                {selectedAssignment.title} · <span className="num">{selectedAssignment.courseCode}</span>
+                {selectedAssignment.title} · {selectedAssignment.subject} · <span className="num">{selectedAssignment.courseCode}</span>
               </DialogDescription>
             </DialogHeader>
 
@@ -295,7 +429,7 @@ function StudentAssignmentsPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">
-                    Academic Integrity Analysis in Progress
+                    Academic Integrity Verification in Progress
                   </h3>
                   <p className="mt-1 text-xs font-mono text-muted-foreground">
                     {processingStage}
@@ -307,7 +441,7 @@ function StudentAssignmentsPage() {
                     Multi-Corpus Evaluation Active
                   </div>
                   <p className="leading-relaxed">
-                    Verity is checking exact, fuzzy, and semantic alignments across internal student archives, reference materials, and academic publications. No simulated progress delays are applied.
+                    Verity is checking exact, fuzzy lexical, and semantic token alignment across internal student archives, reference materials, and academic publications.
                   </p>
                 </div>
               </div>
@@ -317,9 +451,9 @@ function StudentAssignmentsPage() {
                   <CheckCircle2 className="size-6" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-foreground">Submission Verified & Stored</h3>
+                  <h3 className="text-base font-bold text-foreground">Submission Verified & Archived</h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Your document has been extracted, analyzed against peer submissions & web sources, and registered in Supabase.
+                    Your document has been verified against institutional archives and recorded in the database.
                   </p>
                 </div>
 
@@ -329,9 +463,15 @@ function StudentAssignmentsPage() {
                     <span className="num font-bold text-foreground">{submittedReceipt.id}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Student Name & Roll:</span>
+                    <span className="text-muted-foreground">Student:</span>
                     <span className="font-medium text-foreground">
                       {submittedReceipt.studentName} ({submittedReceipt.studentRoll})
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subject / Course:</span>
+                    <span className="font-medium text-foreground">
+                      {selectedAssignment.subject} · {selectedAssignment.courseCode}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -351,9 +491,9 @@ function StudentAssignmentsPage() {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Matched Sources Found:</span>
+                    <span className="text-muted-foreground">Matched Sources:</span>
                     <span className="font-medium text-foreground">
-                      {submittedReceipt.matchedCount} peer & web references
+                      {submittedReceipt.matchedCount} reference sources
                     </span>
                   </div>
                 </div>
@@ -398,144 +538,107 @@ function StudentAssignmentsPage() {
                   <div>
                     <span className="text-muted-foreground text-[11px]">Submitting on behalf of:</span>
                     <p className="font-semibold text-foreground text-xs">
-                      {currentStudent.full_name} · <span className="num">{currentStudent.roll_number}</span>
+                      {currentStudent.full_name} ({currentStudent.roll_number}) · {selectedAssignment.courseCode} ({currentStudent.batch || "Batch 3"})
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 text-[11px] text-brand hover:underline"
-                    onClick={() => setSwitcherOpen(true)}
-                  >
-                    Switch
-                  </Button>
+                  <span className="rounded-xs bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-brand">
+                    Active Session
+                  </span>
                 </div>
 
-                <div className="rounded-sm border border-border bg-muted/20 p-3 space-y-1">
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Deadline:</span>
-                    <span className="num font-medium text-foreground">{selectedAssignment.due}</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Citation Standard:</span>
-                    <span className="num font-medium text-foreground">{selectedAssignment.citationStyle}</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Supported File Formats:</span>
-                    <span className="num font-medium text-foreground">PDF · DOCX · TXT · MD</span>
-                  </div>
-                </div>
-
-                {/* Upload Drag & Drop Area */}
-                <div
-                  className="rounded-sm border-2 border-dashed border-border bg-card p-6 text-center hover:border-brand/50 transition-colors cursor-pointer"
-                  onClick={() => document.getElementById("file-upload-input")?.click()}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                      setFileSelected(e.dataTransfer.files[0]);
-                      toast.info(`Selected ${e.dataTransfer.files[0].name}`);
-                    }
-                  }}
-                >
-                  <UploadCloud className="mx-auto size-8 text-brand/80" />
-                  <p className="mt-2 text-xs font-semibold text-foreground">
-                    Select your PDF or coursework file to upload
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    Drag and drop here, or click to browse files
-                  </p>
-                  <input
-                    type="file"
-                    id="file-upload-input"
-                    className="hidden"
-                    accept=".pdf,.docx,.txt,.md,.c,.cpp,.py,.java"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        setFileSelected(e.target.files[0]);
-                        toast.info(`Selected ${e.target.files[0].name}`);
-                      }
-                    }}
-                  />
-
-                  {fileSelected ? (
-                    <div
-                      className="mt-3.5 inline-flex items-center gap-2 rounded-xs border border-success/30 bg-success-soft px-3 py-1.5 text-xs text-foreground"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <FileCheck className="size-4 text-success shrink-0" />
-                      <div className="text-left min-w-0">
-                        <p className="font-semibold truncate max-w-[240px]">{fileSelected.name}</p>
-                        <p className="text-[10px] text-muted-foreground num">
-                          {(fileSelected.size / 1024).toFixed(1)} KB · {fileSelected.type || "Document"}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setFileSelected(null)}
-                        className="ml-2 text-muted-foreground hover:text-foreground"
-                        title="Remove file"
-                      >
-                        <X className="size-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="mt-3 flex items-center justify-center gap-2">
+                {/* File Upload Area */}
+                <div className="space-y-1.5">
+                  <label className="font-medium text-foreground block">
+                    Upload Document File (PDF, DOCX, TXT)
+                  </label>
+                  <div className="flex flex-col items-center justify-center rounded-sm border-2 border-dashed border-border p-6 hover:border-brand/50 transition-colors bg-muted/20">
+                    <UploadCloud className="size-8 text-muted-foreground mb-2" />
+                    <p className="text-xs font-medium text-foreground">
+                      Drag and drop your final coursework file here
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Accepts academic PDF, Word documents, or UTF-8 plain text (up to 25 MB)
+                    </p>
+                    <div className="mt-3 flex items-center gap-2">
+                      <label className="cursor-pointer rounded-sm bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-secondary/80">
+                        Browse Files
+                        <input
+                          type="file"
+                          accept=".pdf,.docx,.txt"
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              setFileSelected(e.target.files[0]);
+                            }
+                          }}
+                        />
+                      </label>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-7 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          document.getElementById("file-upload-input")?.click();
-                        }}
+                        onClick={handleCreateSamplePdf}
+                        className="text-xs h-7"
                       >
-                        Browse PDF / Document
+                        Load Sample Document
                       </Button>
-                      <Button
+                    </div>
+                  </div>
+
+                  {fileSelected && (
+                    <div className="mt-2 flex items-center justify-between rounded-sm border border-border bg-card p-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <FileCheck className="size-4 text-brand" />
+                        <span className="font-mono text-[11px] text-foreground">
+                          {fileSelected.name}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          ({(fileSelected.size / 1024).toFixed(1)} KB)
+                        </span>
+                      </div>
+                      <button
                         type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs text-muted-foreground hover:text-foreground"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCreateSamplePdf();
-                        }}
+                        onClick={() => setFileSelected(null)}
+                        className="text-muted-foreground hover:text-foreground"
                       >
-                        Use Sample Report
-                      </Button>
+                        <X className="size-3.5" />
+                      </button>
                     </div>
                   )}
                 </div>
 
-                {/* Honor Code Declaration Checkbox */}
-                <div className="rounded-sm border border-border bg-muted/20 p-3">
-                  <label className="flex items-start gap-2.5 cursor-pointer">
+                {/* Academic Integrity Declaration */}
+                <div className="rounded-sm border border-border bg-card p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <ShieldCheck className="size-4 text-brand shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-foreground text-xs">
+                        Institutional Academic Integrity Declaration
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                        I confirm this submission represents my original intellectual work. All external sources have been appropriately cited.
+                      </p>
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 pt-1 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={declarationChecked}
                       onChange={(e) => setDeclarationChecked(e.target.checked)}
-                      className="mt-0.5 accent-navy size-4 rounded-xs"
+                      className="size-3.5 rounded-xs border-input text-brand focus:ring-brand"
                     />
-                    <span className="text-[11px] text-foreground leading-snug">
-                      <strong>Honor Code Declaration:</strong> &ldquo;I, {currentStudent.full_name}, confirm that this submission is my own academic work. All external sources, code snippets, algorithms, and references have been appropriately attributed in accordance with IEEE guidelines.&rdquo;
+                    <span className="text-[11px] font-medium text-foreground">
+                      I agree and confirm this declaration
                     </span>
                   </label>
                 </div>
 
+                {/* Submit Actions */}
                 <div className="flex justify-end gap-2 pt-2 border-t border-border">
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="text-xs"
                     onClick={() => setSelectedAssignment(null)}
                   >
                     Cancel
@@ -543,10 +646,9 @@ function StudentAssignmentsPage() {
                   <Button
                     type="submit"
                     size="sm"
-                    className="text-xs"
-                    disabled={!fileSelected || !declarationChecked || isProcessing}
+                    disabled={!fileSelected || !declarationChecked}
                   >
-                    {isProcessing ? "Extracting & Checking Plagiarism..." : "Submit and Check Plagiarism"}
+                    Submit for Analysis
                   </Button>
                 </div>
               </form>

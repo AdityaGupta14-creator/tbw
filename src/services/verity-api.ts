@@ -186,7 +186,23 @@ export const verityApi = {
 
           const { data, error } = await query;
           if (!error && data && data.length > 0) {
-            return data as Assignment[];
+            return data.map((a: any) => {
+              const citation_style = a.citation_style === "Other" ? "Normal" : (a.citation_style || "Normal");
+              let subject = a.subject;
+              let batch = a.batch || "All Batches";
+              if (!subject && a.description) {
+                const subMatch = a.description.match(/\[Subject:\s*([^\]]+)\]/i);
+                if (subMatch) subject = subMatch[1].trim();
+                const batchMatch = a.description.match(/\[Batch:\s*([^\]]+)\]/i);
+                if (batchMatch) batch = batchMatch[1].trim();
+              }
+              return {
+                ...a,
+                citation_style,
+                subject: subject || a.subject || "Data Structures",
+                batch,
+              } as Assignment;
+            });
           }
         } catch (e) {
           console.warn("Supabase assignments.list fallback:", e);
@@ -206,7 +222,21 @@ export const verityApi = {
           }
           const { data, error } = await query.maybeSingle();
           if (!error && data) {
-            return data as Assignment;
+            const citation_style = data.citation_style === "Other" ? "Normal" : (data.citation_style || "Normal");
+            let subject = (data as any).subject;
+            let batch = (data as any).batch || "All Batches";
+            if (!subject && data.description) {
+              const subMatch = data.description.match(/\[Subject:\s*([^\]]+)\]/i);
+              if (subMatch) subject = subMatch[1].trim();
+              const batchMatch = data.description.match(/\[Batch:\s*([^\]]+)\]/i);
+              if (batchMatch) batch = batchMatch[1].trim();
+            }
+            return {
+              ...data,
+              citation_style,
+              subject: subject || "Data Structures",
+              batch,
+            } as Assignment;
           }
         } catch (e) {
           console.warn("Supabase assignments.get fallback:", e);
@@ -221,7 +251,7 @@ export const verityApi = {
       if (isSupabaseConfigured()) {
         try {
           let courseId = data.course_id;
-          let courseCode = data.course_code || "ENG-CSE-301";
+          let courseCode = data.course_code || "EXCS-B";
           let courseName = data.course_name || "Data Structures";
 
           if (!isUuid(courseId || "")) {
@@ -236,7 +266,7 @@ export const verityApi = {
               courseCode = crs.course_code;
               courseName = crs.name;
             } else {
-              courseId = "c0000000-0000-0000-0000-000000000001";
+              courseId = "c0000000-0000-0000-0000-000000000005";
             }
           }
 
@@ -248,26 +278,35 @@ export const verityApi = {
             }
           }
 
+          const supabaseCitationStyle =
+            data.citation_style === "Normal"
+              ? "Other"
+              : data.citation_style || "Other";
+
+          const subjectTag = data.subject ? `[Subject: ${data.subject}] ` : "";
+          const batchTag = data.batch ? `[Batch: ${data.batch}] ` : "";
+          const fullDescription = `${subjectTag}${batchTag}${data.description || ""}`.trim();
+
           const newAssignment = {
             course_id: courseId,
             course_code: courseCode,
             course_name: courseName,
             created_by: "b0000000-0000-0000-0000-000000000001",
             title: data.title || "Untitled Assignment",
-            description: data.description || "",
+            description: fullDescription,
             assignment_type: data.assignment_type || "Technical Report",
             due_date: parsedDue,
             max_marks: data.max_marks || 100,
             word_limit: data.word_limit || 2000,
             page_limit: data.page_limit || 8,
-            citation_style: data.citation_style || "IEEE",
+            citation_style: supabaseCitationStyle,
             enable_similarity: data.enable_similarity ?? true,
             enable_student_comparison: data.enable_student_comparison ?? true,
             enable_citation_analysis: data.enable_citation_analysis ?? true,
             enable_revision_history: data.enable_revision_history ?? true,
             enable_writing_pattern_analysis: data.enable_writing_pattern_analysis ?? true,
             submitted_count: 0,
-            total_students: 64,
+            total_students: 5,
             avg_similarity: 0,
             pending_count: 0,
           };
@@ -284,8 +323,14 @@ export const verityApi = {
           }
 
           if (inserted) {
-            db.createAssignment({ ...inserted });
-            return inserted as Assignment;
+            const ret = {
+              ...inserted,
+              subject: data.subject || "Data Structures",
+              batch: data.batch || "All Batches",
+              citation_style: data.citation_style || "Normal",
+            };
+            db.createAssignment(ret);
+            return ret as Assignment;
           }
         } catch (e: any) {
           console.warn("Supabase assignments.create error:", e);
@@ -294,6 +339,30 @@ export const verityApi = {
       }
 
       return localAsg;
+    },
+
+    async delete(id: string): Promise<boolean> {
+      if (isSupabaseConfigured()) {
+        try {
+          // Verify ID exists or look up by fallback mock aliases if needed
+          let targetId = id;
+          if (!isUuid(id)) {
+             // Let's rely on simple string match or not support mock ID deletions remotely.
+             // We can just query supabase to find if it exists
+             const { data: existing } = await supabase.from("assignments").select("id").eq("id", id).maybeSingle();
+             if (existing) targetId = existing.id;
+          }
+          const { error } = await supabase.from("assignments").delete().eq("id", targetId);
+          if (error) {
+            console.error("Supabase assignments.delete error:", error);
+            throw new Error(error.message);
+          }
+        } catch (e: any) {
+          console.warn("Supabase assignments.delete fallback:", e);
+          throw e;
+        }
+      }
+      return true; // We always succeed locally as mock DB isn't fully persistent for deletes across sessions
     },
   },
 
@@ -308,7 +377,7 @@ export const verityApi = {
         try {
           let query = supabase
             .from("submissions")
-            .select("*, student:profiles!student_id(full_name, roll_number), document:documents(*), analysis:analyses(*)")
+            .select("*, student:profiles!student_id(full_name, roll_number), assignment:assignments!assignment_id(title), document:documents(*), analysis:analyses(*)")
             .order("submitted_at", { ascending: false });
 
           if (filters?.courseCode && filters.courseCode !== "All courses") {
@@ -327,8 +396,9 @@ export const verityApi = {
           if (!error && data && data.length > 0) {
             return data.map((sub: any) => ({
               ...sub,
+              assignment_title: sub.assignment?.title || sub.assignment_title || "Technical Report",
               student_name: sub.student?.full_name || sub.student_name || "Student",
-              student_roll: sub.student?.roll_number || sub.student_roll || "22CSE",
+              student_roll: sub.student?.roll_number || sub.student_roll || "25108B0071",
             })) as Submission[];
           }
         } catch (e) {
@@ -402,6 +472,7 @@ export const verityApi = {
     async submit(params: {
       assignmentId: string;
       file: File;
+      studentId?: string | undefined;
       studentRoll?: string | undefined;
       studentName?: string | undefined;
       onProgress?: ((stage: string) => void) | undefined;
@@ -440,7 +511,7 @@ export const verityApi = {
             const { data: asg } = await supabase
               .from("assignments")
               .select("id, title, course_id, course_code")
-              .or(`title.ilike.%${asgId}%,course_code.ilike.%${asgId}%`)
+              .or(`id.ilike.%${asgId}%,title.ilike.%${asgId}%,course_code.ilike.%${asgId}%`)
               .limit(1)
               .maybeSingle();
             if (asg) {
@@ -455,7 +526,7 @@ export const verityApi = {
         }
       }
 
-      let studentId = "b0000000-0000-0000-0000-000000000002";
+      let studentId = params.studentId || "b0000000-0000-0000-0000-000000000002";
       let studentName = params.studentName || "Riya Sharma";
       let studentRoll = params.studentRoll || "22CSE057";
 
@@ -490,7 +561,10 @@ export const verityApi = {
       }
 
       // Record in local in-memory DB (or fallback)
-      const localResult = await db.submitDocument(params);
+      const localResult = await db.submitDocument({
+        ...params,
+        studentId: studentId,
+      });
 
       // In Supabase, record submission in 'processing' state first
       let subRow: any = null;
@@ -529,7 +603,7 @@ export const verityApi = {
             .single();
 
           if (!subErr && insertedSub) {
-            subRow = insertedSub;
+            subRow = { ...insertedSub, assignment_id: asgId };
           }
         } catch (e) {
           console.warn("Supabase initial submission insert error:", e);
@@ -644,6 +718,7 @@ export const verityApi = {
 
             const completeSubmission: Submission = {
               ...(updatedSub || subRow || localResult),
+              assignment_id: asgId,
               student_name: studentName,
               student_roll: studentRoll,
               document: docRow || localResult.document || undefined,
@@ -787,6 +862,29 @@ export const verityApi = {
   // Students Directory
   students: {
     async list(): Promise<Profile[]> {
+      const parseProfile = (p: any): Profile => {
+        let section = p.section || "B";
+        let batch = p.batch || "Batch 3";
+        let course_code = p.course_code || "EXCS-B";
+        let department_code = p.department_code || "EXCS";
+        if (p.avatar_url && typeof p.avatar_url === "string" && p.avatar_url.trim().startsWith("{")) {
+          try {
+            const meta = JSON.parse(p.avatar_url);
+            if (meta.section) section = meta.section;
+            if (meta.batch) batch = meta.batch;
+            if (meta.course_code) course_code = meta.course_code;
+            if (meta.department_code) department_code = meta.department_code;
+          } catch {}
+        }
+        return {
+          ...p,
+          section,
+          batch,
+          course_code,
+          department_code,
+        };
+      };
+
       if (isSupabaseConfigured()) {
         try {
           const { data, error } = await supabase
@@ -795,16 +893,39 @@ export const verityApi = {
             .eq("role", "student")
             .order("full_name", { ascending: true });
           if (!error && data && data.length > 0) {
-            return data as Profile[];
+            return data.map(parseProfile);
           }
         } catch (e) {
           console.warn("Supabase students.list fallback:", e);
         }
       }
-      return db.getStudents();
+      return db.getStudents().map(parseProfile);
     },
 
     async get(id: string): Promise<Profile | undefined> {
+      const parseProfile = (p: any): Profile => {
+        let section = p.section || "B";
+        let batch = p.batch || "Batch 3";
+        let course_code = p.course_code || "EXCS-B";
+        let department_code = p.department_code || "EXCS";
+        if (p.avatar_url && typeof p.avatar_url === "string" && p.avatar_url.trim().startsWith("{")) {
+          try {
+            const meta = JSON.parse(p.avatar_url);
+            if (meta.section) section = meta.section;
+            if (meta.batch) batch = meta.batch;
+            if (meta.course_code) course_code = meta.course_code;
+            if (meta.department_code) department_code = meta.department_code;
+          } catch {}
+        }
+        return {
+          ...p,
+          section,
+          batch,
+          course_code,
+          department_code,
+        };
+      };
+
       if (isSupabaseConfigured()) {
         try {
           let query = supabase.from("profiles").select("*");
@@ -815,13 +936,14 @@ export const verityApi = {
           }
           const { data, error } = await query.maybeSingle();
           if (!error && data) {
-            return data as Profile;
+            return parseProfile(data);
           }
         } catch (e) {
           console.warn("Supabase students.get fallback:", e);
         }
       }
-      return db.getStudentById(id);
+      const local = db.getStudentById(id);
+      return local ? parseProfile(local) : undefined;
     },
 
     async create(data: {
@@ -829,7 +951,18 @@ export const verityApi = {
       email: string;
       roll_number: string;
       department_name?: string;
+      department_code?: string;
+      course_code?: string;
+      section?: string;
+      batch?: string;
     }): Promise<Profile> {
+      const metadataStr = JSON.stringify({
+        section: data.section || "B",
+        batch: data.batch || "Batch 3",
+        course_code: data.course_code || "EXCS-B",
+        department_code: data.department_code || "EXCS",
+      });
+
       if (isSupabaseConfigured()) {
         const { data: inserted, error } = await supabase
           .from("profiles")
@@ -839,7 +972,8 @@ export const verityApi = {
             role: "student",
             roll_number: data.roll_number,
             institution_id: "a0000000-0000-0000-0000-000000000001",
-            department_name: data.department_name || "Computer Engineering",
+            department_name: data.department_name || "Electronics and Computer Science Engineering",
+            avatar_url: metadataStr,
           })
           .select()
           .single();
@@ -849,8 +983,15 @@ export const verityApi = {
           throw new Error(error.message);
         }
         if (inserted) {
-          db.createStudent(inserted);
-          return inserted as Profile;
+          const profileWithMeta: Profile = {
+            ...inserted,
+            section: data.section || "B",
+            batch: data.batch || "Batch 3",
+            course_code: data.course_code || "EXCS-B",
+            department_code: data.department_code || "EXCS",
+          };
+          db.createStudent(profileWithMeta);
+          return profileWithMeta;
         }
       }
 
@@ -859,7 +1000,10 @@ export const verityApi = {
         email: data.email,
         role: "student",
         roll_number: data.roll_number,
-        department_name: data.department_name || "Computer Engineering",
+        department_name: data.department_name || "Electronics and Computer Science Engineering",
+        section: data.section || "B",
+        batch: data.batch || "Batch 3",
+        course_code: data.course_code || "EXCS-B",
       });
       return newProfile;
     },
@@ -878,10 +1022,10 @@ export const verityApi = {
 
       const textA =
         subA?.document?.extracted_text ||
-        "Balanced search trees provide an efficient method for maintaining ordered collections.";
+        "Ohm's law states that the current through a conductor between two points is directly proportional to the voltage across the two points. Introducing the constant of proportionality, the resistance, one arrives at the usual mathematical equation that describes this relationship: I = V/R. This experiment verifies Ohm's law using a standard resistor network and precision multimeters.";
       const textB =
         subB?.document?.extracted_text ||
-        "Balanced binary trees represent a core algorithmic mechanism for keeping ordered data accessible.";
+        "Ohm's law indicates that current is proportional to voltage. By adding resistance as a constant, we get the equation I = V/R. Our lab experiment confirms this relationship via standard electrical components.";
 
       return compareTwoDocuments(
         textA,

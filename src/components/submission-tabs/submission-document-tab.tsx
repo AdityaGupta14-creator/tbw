@@ -224,6 +224,18 @@ export function SubmissionDocumentTab({
                   </p>
                 </div>
               )}
+              
+              {selectedMatch.sourceType === "student_submission" && (
+                <div className="mt-2 rounded bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 p-2.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-800 dark:text-indigo-300 block mb-1">
+                    Context: Institutional Peer Comparison
+                  </span>
+                  <p className="text-xs text-indigo-900/80 dark:text-indigo-200/80">
+                    This highlighted passage exactly or substantially mirrors another student's assignment submitted to this institution's database. 
+                    Peer overlap may indicate unauthorized collaboration or shared templates.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
@@ -312,8 +324,12 @@ export function SubmissionDocumentTab({
                   badgeColor = "bg-amber-600 text-white";
                   badgeLabel = `${p.match.percent}% Overlap`;
                 }
+              } else if (p.match && p.match.sourceType === "student_submission") {
+                badgeColor =
+                  "bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800";
+                badgeLabel = `Peer Match: ${p.match.percent}% Overlap`;
               }
-
+              
               return (
                 <div
                   key={p.id}

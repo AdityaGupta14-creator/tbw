@@ -28,6 +28,7 @@ export interface StudentSubmissionRecord {
   studentName?: string | undefined;
   studentRoll?: string | undefined;
   courseId?: string | undefined;
+  assignmentId?: string | undefined;
   institutionId?: string | undefined;
   status: string;
   text: string;
@@ -104,6 +105,14 @@ export class InternalStudentCorpusProvider implements UnifiedSourceProvider {
         if (query.courseId && sub.courseId) {
           const isSameCourse = sub.courseId.toLowerCase() === query.courseId.toLowerCase();
           if (!isSameCourse && query.userRole !== "admin") {
+            return false;
+          }
+        }
+
+        // Cross-Assignment Isolation:
+        // Enforce strict assignment boundary so a submission is only compared against other submissions to the SAME assignment.
+        if (query.assignmentId) {
+          if (!sub.assignmentId || sub.assignmentId.toLowerCase() !== query.assignmentId.toLowerCase()) {
             return false;
           }
         }
@@ -269,6 +278,7 @@ export class InternalStudentCorpusProvider implements UnifiedSourceProvider {
           studentName: sub.student_name,
           studentRoll: sub.student_roll,
           courseId: sub.course_id,
+          assignmentId: sub.assignment_id,
           institutionId: "a0000000-0000-0000-0000-000000000001", // Default seed institution
           status: sub.status,
           text,
@@ -282,9 +292,11 @@ export class InternalStudentCorpusProvider implements UnifiedSourceProvider {
       try {
         let sbQuery = supabase
           .from("submissions")
-          .select("id, submission_code, student_id, student_name, student_roll, course_id, status, submitted_at, documents(extracted_text)");
+          .select("id, submission_code, student_id, student_name, student_roll, course_id, assignment_id, status, submitted_at, documents(extracted_text)");
 
-        if (query.courseId) {
+        if (query.assignmentId) {
+          sbQuery = sbQuery.eq("assignment_id", query.assignmentId);
+        } else if (query.courseId) {
           sbQuery = sbQuery.eq("course_id", query.courseId);
         }
 
@@ -300,6 +312,7 @@ export class InternalStudentCorpusProvider implements UnifiedSourceProvider {
                 studentName: row.student_name,
                 studentRoll: row.student_roll,
                 courseId: row.course_id,
+                assignmentId: row.assignment_id,
                 institutionId: query.institutionId || "a0000000-0000-0000-0000-000000000001",
                 status: row.status,
                 text: extracted,

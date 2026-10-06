@@ -55,8 +55,8 @@ const ACADEMIC_SYNONYM_MAP: Record<string, string> = {
  * Captures morphology, word stems, and semantic distributions locally in microseconds.
  */
 export class LocalSemanticProvider implements SemanticSimilarityProvider {
-  public readonly name = "Verity-Local-TFIDF-Subword-Vectorizer-v2.4";
-  private readonly dimensions = 512;
+  public readonly name = "Verity-Local-TFIDF-Subword-Vectorizer-v2.5";
+  private readonly dimensions = 8192;
 
   /**
    * Generates a 512-dimensional L2-normalized semantic embedding vector.

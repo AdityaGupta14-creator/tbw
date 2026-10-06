@@ -15,10 +15,13 @@ const getEnvVar = (key: string): string => {
 };
 
 const supabaseUrl = getEnvVar("VITE_SUPABASE_URL") || DEFAULT_SUPABASE_URL;
-const supabaseAnonKey = getEnvVar("VITE_SUPABASE_ANON_KEY") || DEFAULT_SUPABASE_ANON_KEY;
+const supabaseKey =
+  getEnvVar("SUPABASE_SERVICE_ROLE_KEY") ||
+  getEnvVar("VITE_SUPABASE_ANON_KEY") ||
+  DEFAULT_SUPABASE_ANON_KEY;
 
 export const isSupabaseConfigured = () => {
-  return Boolean(supabaseUrl && supabaseAnonKey && !supabaseUrl.includes("placeholder"));
+  return Boolean(supabaseUrl && supabaseKey && !supabaseUrl.includes("placeholder"));
 };
 
 const isBrowser = typeof window !== "undefined";
@@ -26,7 +29,7 @@ const isBrowser = typeof window !== "undefined";
 // If Supabase environment variables are provided, initialize the real client;
 // otherwise, use an in-memory/dummy client to prevent runtime exceptions.
 export const supabase = isSupabaseConfigured()
-  ? createClient(supabaseUrl, supabaseAnonKey, {
+  ? createClient(supabaseUrl, supabaseKey, {
       auth: {
         persistSession: isBrowser,
         autoRefreshToken: isBrowser,

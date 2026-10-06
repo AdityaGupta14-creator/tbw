@@ -90,7 +90,7 @@ export function StudentSwitcherDialog({ open, onOpenChange }: StudentSwitcherDia
 
         {!showAddForm ? (
           <div className="space-y-4">
-            <div className="max-h-[300px] overflow-y-auto space-y-1.5 pr-1">
+            <div className="max-h-[300px] overflow-y-auto overflow-x-hidden space-y-1.5 pr-3">
               {allStudents.map((s) => {
                 const isActive = s.id === currentStudent.id || s.roll_number === currentStudent.roll_number;
                 return (
@@ -98,15 +98,15 @@ export function StudentSwitcherDialog({ open, onOpenChange }: StudentSwitcherDia
                     key={s.id}
                     type="button"
                     onClick={() => handleSelectStudent(s.id)}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-md border text-left transition-all ${
+                    className={`w-full flex items-center justify-between p-2.5 rounded-md border text-left transition-all min-w-0 overflow-hidden ${
                       isActive
                         ? "border-brand bg-brand/5 shadow-xs"
                         : "border-border hover:bg-muted/50 hover:border-input"
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex items-center gap-2.5 flex-1 min-w-0 pr-3">
                       <div
-                        className={`size-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                        className={`size-8 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${
                           isActive
                             ? "bg-brand text-brand-foreground"
                             : "bg-muted text-muted-foreground"
@@ -119,21 +119,21 @@ export function StudentSwitcherDialog({ open, onOpenChange }: StudentSwitcherDia
                           .slice(0, 2)
                           .toUpperCase()}
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-xs font-semibold text-foreground truncate">
                           {s.full_name}
                         </p>
                         <p className="num text-[11px] text-muted-foreground truncate">
-                          {s.roll_number || "Student"} · {s.department_name || "Computer Engineering"}
+                          {s.roll_number || "Student"} · {s.department_name || "Electronics and Computer Science Engineering"} (Section {s.section || "B"}, {s.batch || "Batch 3"})
                         </p>
                       </div>
                     </div>
                     {isActive ? (
-                      <span className="flex items-center gap-1 text-[11px] font-semibold text-brand bg-brand/10 px-2 py-0.5 rounded-full">
+                      <span className="shrink-0 flex items-center gap-1 text-[11px] font-semibold text-brand bg-brand/10 px-2 py-0.5 rounded-full">
                         <Check className="size-3" /> Active
                       </span>
                     ) : (
-                      <span className="text-[11px] text-muted-foreground hover:text-foreground">
+                      <span className="shrink-0 text-[11px] text-muted-foreground hover:text-foreground">
                         Select
                       </span>
                     )}

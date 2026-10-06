@@ -18,10 +18,11 @@ ON CONFLICT (id) DO UPDATE SET
 -- 2. Departments
 INSERT INTO public.departments (id, institution_id, name, code, faculty_count, student_count, course_count, submission_count)
 VALUES
-  ('d0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'Computer Engineering', 'ENG-CSE', 24, 612, 18, 2140),
-  ('d0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'Electrical Engineering', 'ENG-EEE', 18, 486, 14, 1502),
-  ('d0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000001', 'Mechanical Engineering', 'ENG-ME', 21, 524, 16, 1638),
-  ('d0000000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000001', 'Civil Engineering', 'ENG-CE', 15, 398, 12, 1104)
+  ('d0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'Computer Engineering', 'CMPN', 24, 128, 2, 420),
+  ('d0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'Information Technology Engineering', 'IT', 18, 120, 2, 390),
+  ('d0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000001', 'Electronics and Computer Science Engineering', 'EXCS', 21, 116, 2, 450),
+  ('d0000000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000001', 'Electronics and Telecommunication', 'EXTC', 15, 116, 2, 310),
+  ('d0000000-0000-0000-0000-000000000005', 'a0000000-0000-0000-0000-000000000001', 'Biomedical Engineering', 'BIO', 12, 100, 2, 240)
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   code = EXCLUDED.code,
@@ -31,56 +32,62 @@ ON CONFLICT (id) DO UPDATE SET
   submission_count = EXCLUDED.submission_count;
 
 -- 3. Profiles (Faculty, Students, Admin)
-INSERT INTO public.profiles (id, full_name, email, role, roll_number, institution_id, department_id, department_name)
+INSERT INTO public.profiles (id, full_name, email, role, roll_number, institution_id, department_id, department_name, avatar_url)
 VALUES
   -- Faculty
-  ('b0000000-0000-0000-0000-000000000001', 'Dr. P. Kulkarni', 'p.kulkarni@abcit.edu', 'faculty', NULL, 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000001', 'Computer Engineering'),
-  -- Students
-  ('b0000000-0000-0000-0000-000000000002', 'Riya Sharma', 'riya.sharma@abcit.edu', 'student', '22CSE057', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000001', 'Computer Engineering'),
-  ('b0000000-0000-0000-0000-000000000003', 'Aarav Mehta', 'aarav.mehta@abcit.edu', 'student', '22CSE041', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000001', 'Computer Engineering'),
-  ('b0000000-0000-0000-0000-000000000004', 'Kabir Patel', 'kabir.patel@abcit.edu', 'student', '22CSE063', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000001', 'Computer Engineering'),
-  ('b0000000-0000-0000-0000-000000000005', 'Ananya Iyer', 'ananya.iyer@abcit.edu', 'student', '22CSE018', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000001', 'Computer Engineering'),
-  ('b0000000-0000-0000-0000-000000000006', 'Aditya Rao', 'aditya.rao@abcit.edu', 'student', '22CSE032', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000001', 'Computer Engineering'),
+  ('b0000000-0000-0000-0000-000000000001', 'Dr. P. Kulkarni', 'p.kulkarni@vit.edu.in', 'faculty', NULL, 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000003', 'Electronics and Computer Science Engineering', NULL),
+  -- 5 Institutional Students (Section B, Batch 3)
+  ('b0000000-0000-0000-0000-000000000002', 'Aditya Gupta', 'aditya.gupta@vit.edu.in', 'student', '25108B0071', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000003', 'Electronics and Computer Science Engineering', '{"section":"B","batch":"Batch 3","course_code":"EXCS-B","department_code":"EXCS"}'),
+  ('b0000000-0000-0000-0000-000000000003', 'Abaan Sakarwala', 'abaan.sakarwala@vit.edu.in', 'student', '25108C0005', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000003', 'Electronics and Computer Science Engineering', '{"section":"B","batch":"Batch 3","course_code":"EXCS-B","department_code":"EXCS"}'),
+  ('b0000000-0000-0000-0000-000000000004', 'Soham Waingade', 'soham.waingade@vit.edu.in', 'student', '25108C0005', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000003', 'Electronics and Computer Science Engineering', '{"section":"B","batch":"Batch 3","course_code":"EXCS-B","department_code":"EXCS"}'),
+  ('b0000000-0000-0000-0000-000000000005', 'Keyur Arolkar', 'keyur.arolkar@vit.edu.in', 'student', '25108B0074', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000003', 'Electronics and Computer Science Engineering', '{"section":"B","batch":"Batch 3","course_code":"EXCS-B","department_code":"EXCS"}'),
+  ('b0000000-0000-0000-0000-000000000006', 'Aneesh Subramaniam', 'aneesh.subramaniam@vit.edu.in', 'student', '2510C0016', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000003', 'Electronics and Computer Science Engineering', '{"section":"B","batch":"Batch 3","course_code":"EXCS-B","department_code":"EXCS"}'),
   -- Admin
-  ('b0000000-0000-0000-0000-000000000007', 'Registrar Office', 'registrar@abcit.edu', 'admin', NULL, 'a0000000-0000-0000-0000-000000000001', NULL, NULL)
+  ('b0000000-0000-0000-0000-000000000007', 'Registrar Office', 'registrar@vit.edu.in', 'admin', NULL, 'a0000000-0000-0000-0000-000000000001', NULL, NULL, NULL)
 ON CONFLICT (id) DO UPDATE SET
   full_name = EXCLUDED.full_name,
   email = EXCLUDED.email,
   role = EXCLUDED.role,
   roll_number = EXCLUDED.roll_number,
-  department_name = EXCLUDED.department_name;
+  department_name = EXCLUDED.department_name,
+  avatar_url = EXCLUDED.avatar_url;
 
--- 4. Courses
+-- 4. Courses (10 Institutional Courses across 5 Departments)
 INSERT INTO public.courses (id, institution_id, department_id, department_name, faculty_id, faculty_name, course_code, name, section, semester, academic_year, description, student_count, assignment_count, pending_count, pending_reviews)
 VALUES
-  ('c0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000001', 'Computer Engineering', 'b0000000-0000-0000-0000-000000000001', 'Dr. P. Kulkarni', 'ENG-CSE-301', 'Data Structures', 'A', 'Autumn', '2026–27', 'Balanced search trees, graph algorithms, and indexing structures.', 64, 5, 3, 3),
-  ('c0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000001', 'Computer Engineering', 'b0000000-0000-0000-0000-000000000001', 'Dr. P. Kulkarni', 'ENG-CSE-305', 'Database Management Systems', 'B', 'Autumn', '2026–27', 'Relational algebra, normal forms, transaction ACID properties.', 58, 4, 5, 5),
-  ('c0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000001', 'Computer Engineering', 'b0000000-0000-0000-0000-000000000001', 'Dr. P. Kulkarni', 'ENG-CSE-312', 'Computer Networks', 'A', 'Autumn', '2026–27', 'Layered architectures, TCP congestion control, socket programming.', 60, 3, 2, 2),
-  ('c0000000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000002', 'Electrical Engineering', 'b0000000-0000-0000-0000-000000000001', 'Dr. P. Kulkarni', 'ENG-EEE-204', 'Digital Electronics', 'A', 'Autumn', '2026–27', 'Synchronous state machines, logic synthesis, hardware testbenches.', 61, 6, 2, 2),
-  ('c0000000-0000-0000-0000-000000000005', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000003', 'Mechanical Engineering', 'b0000000-0000-0000-0000-000000000001', 'Dr. P. Kulkarni', 'ENG-ME-210', 'Engineering Mechanics', 'C', 'Autumn', '2026–27', 'Stress analysis, static equilibrium, finite element approximations.', 55, 4, 2, 2)
+  ('c0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000001', 'Computer Engineering', 'b0000000-0000-0000-0000-000000000001', 'Dr. P. Kulkarni', 'CMPN-A', 'Computer Engineering - Section A', 'A', 'Autumn', '2026–27', 'Core Computer Engineering Curriculum - Section A', 64, 5, 3, 3),
+  ('c0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000001', 'Computer Engineering', 'b0000000-0000-0000-0000-000000000001', 'Dr. P. Kulkarni', 'CMPN-B', 'Computer Engineering - Section B', 'B', 'Autumn', '2026–27', 'Core Computer Engineering Curriculum - Section B', 64, 4, 2, 2),
+  ('c0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000002', 'Information Technology Engineering', 'b0000000-0000-0000-0000-000000000001', 'Dr. P. Kulkarni', 'IT-A', 'Information Technology Engineering - Section A', 'A', 'Autumn', '2026–27', 'Information Technology Curriculum - Section A', 60, 3, 2, 2),
+  ('c0000000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000002', 'Information Technology Engineering', 'b0000000-0000-0000-0000-000000000001', 'Dr. P. Kulkarni', 'IT-B', 'Information Technology Engineering - Section B', 'B', 'Autumn', '2026–27', 'Information Technology Curriculum - Section B', 60, 3, 1, 1),
+  ('c0000000-0000-0000-0000-000000000005', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000003', 'Electronics and Computer Science Engineering', 'b0000000-0000-0000-0000-000000000001', 'Dr. P. Kulkarni', 'EXCS-A', 'Electronics and Computer Science Engineering - Section A', 'A', 'Autumn', '2026–27', 'Electronics and Computer Science Curriculum - Section A', 58, 4, 2, 2),
+  ('c0000000-0000-0000-0000-000000000006', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000003', 'Electronics and Computer Science Engineering', 'b0000000-0000-0000-0000-000000000001', 'Dr. P. Kulkarni', 'EXCS-B', 'Electronics and Computer Science Engineering - Section B', 'B', 'Autumn', '2026–27', 'Electronics and Computer Science Curriculum - Section B (Batch 1, 2, 3)', 58, 5, 1, 1),
+  ('c0000000-0000-0000-0000-000000000007', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000004', 'Electronics and Telecommunication', 'b0000000-0000-0000-0000-000000000001', 'Dr. P. Kulkarni', 'EXTC-A', 'Electronics and Telecommunication - Section A', 'A', 'Autumn', '2026–27', 'Electronics and Telecommunication Curriculum - Section A', 58, 3, 2, 2),
+  ('c0000000-0000-0000-0000-000000000008', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000004', 'Electronics and Telecommunication', 'b0000000-0000-0000-0000-000000000001', 'Dr. P. Kulkarni', 'EXTC-B', 'Electronics and Telecommunication - Section B', 'B', 'Autumn', '2026–27', 'Electronics and Telecommunication Curriculum - Section B', 58, 3, 1, 1),
+  ('c0000000-0000-0000-0000-000000000009', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000005', 'Biomedical Engineering', 'b0000000-0000-0000-0000-000000000001', 'Dr. P. Kulkarni', 'BIO-A', 'Biomedical Engineering - Section A', 'A', 'Autumn', '2026–27', 'Biomedical Engineering Curriculum - Section A', 50, 2, 1, 1),
+  ('c0000000-0000-0000-0000-000000000010', 'a0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000005', 'Biomedical Engineering', 'b0000000-0000-0000-0000-000000000001', 'Dr. P. Kulkarni', 'BIO-B', 'Biomedical Engineering - Section B', 'B', 'Autumn', '2026–27', 'Biomedical Engineering Curriculum - Section B', 50, 2, 1, 1)
 ON CONFLICT (id) DO UPDATE SET
   course_code = EXCLUDED.course_code,
   name = EXCLUDED.name,
   description = EXCLUDED.description;
 
--- 5. Course Memberships (Enrollments)
+-- 5. Course Memberships (Enrollments for the 5 students in EXCS-B)
 INSERT INTO public.course_members (course_id, student_id, status)
 VALUES
-  ('c0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000002', 'active'), -- Riya in CSE-301
-  ('c0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000003', 'active'), -- Aarav in CSE-301
-  ('c0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000004', 'active'), -- Kabir in CSE-301
-  ('c0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000005', 'active'), -- Ananya in CSE-301
-  ('c0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000006', 'active'), -- Aditya in CSE-301
-  ('c0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000002', 'active'), -- Riya in CSE-305
-  ('c0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000003', 'active')  -- Aarav in CSE-305
+  ('c0000000-0000-0000-0000-000000000006', 'b0000000-0000-0000-0000-000000000002', 'active'), -- Aditya Gupta in EXCS-B
+  ('c0000000-0000-0000-0000-000000000006', 'b0000000-0000-0000-0000-000000000003', 'active'), -- Abaan Sakarwala in EXCS-B
+  ('c0000000-0000-0000-0000-000000000006', 'b0000000-0000-0000-0000-000000000004', 'active'), -- Soham Waingade in EXCS-B
+  ('c0000000-0000-0000-0000-000000000006', 'b0000000-0000-0000-0000-000000000005', 'active'), -- Keyur Arolkar in EXCS-B
+  ('c0000000-0000-0000-0000-000000000006', 'b0000000-0000-0000-0000-000000000006', 'active')  -- Aneesh Subramaniam in EXCS-B
 ON CONFLICT (course_id, student_id) DO NOTHING;
 
--- 6. Assignments
+-- 6. Assignments (5 Subjects for EXCS-B)
 INSERT INTO public.assignments (id, course_id, course_code, course_name, created_by, title, description, assignment_type, due_date, max_marks, word_limit, page_limit, citation_style, submitted_count, total_students, avg_similarity, pending_count)
 VALUES
-  ('e0000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', 'ENG-CSE-301', 'Data Structures', 'b0000000-0000-0000-0000-000000000001', 'Technical Report 02', 'Comparative Analysis of Balanced Binary Search Trees under dynamic insertions.', 'Technical Report', '2026-09-24 23:59:59+00', 100, 2000, 8, 'IEEE', 58, 64, 12.00, 3),
-  ('e0000000-0000-0000-0000-000000000002', 'c0000000-0000-0000-0000-000000000001', 'ENG-CSE-301', 'Data Structures', 'b0000000-0000-0000-0000-000000000001', 'Binary Search Tree Analysis', 'Empirical benchmarking of rotation frequencies in self-balancing structures.', 'Technical Report', '2026-09-24 23:59:59+00', 100, 2500, 10, 'IEEE', 58, 64, 12.00, 3),
-  ('e0000000-0000-0000-0000-000000000003', 'c0000000-0000-0000-0000-000000000001', 'ENG-CSE-301', 'Data Structures', 'b0000000-0000-0000-0000-000000000001', 'Lab Report 04', 'Graph shortest path algorithms implementation and asymptotic complexity.', 'Lab Report', '2026-09-22 23:59:59+00', 50, 1500, 5, 'IEEE', 64, 64, 8.00, 0)
+  ('e0000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000006', 'EXCS-B', 'Electronics and Computer Science Engineering - Section B', 'b0000000-0000-0000-0000-000000000001', 'Technical Report', '[Subject: Technical and Business Writing] [Batch: Batch 3] Technical documentation and academic reporting methodology.', 'Technical Report', '2026-10-05 23:59:59+00', 100, 2000, 8, 'Other', 4, 5, 12.00, 1),
+  ('e0000000-0000-0000-0000-000000000002', 'c0000000-0000-0000-0000-000000000006', 'EXCS-B', 'Electronics and Computer Science Engineering - Section B', 'b0000000-0000-0000-0000-000000000001', 'Binary Search Tree Implementation Analysis', '[Subject: Data Structures] [Batch: Batch 3] Balanced binary search trees and rotation algorithms.', 'Lab Report', '2026-10-08 23:59:59+00', 100, 2500, 10, 'Other', 3, 5, 9.00, 2),
+  ('e0000000-0000-0000-0000-000000000003', 'c0000000-0000-0000-0000-000000000006', 'EXCS-B', 'Electronics and Computer Science Engineering - Section B', 'b0000000-0000-0000-0000-000000000001', 'Mesh and Nodal Network Simulation', '[Subject: Electrical Circuit Analysis] [Batch: Batch 3] Matrix loop and nodal voltage solutions for complex networks.', 'Technical Report', '2026-10-12 23:59:59+00', 100, 1500, 6, 'Other', 2, 5, 14.00, 3),
+  ('e0000000-0000-0000-0000-000000000004', 'c0000000-0000-0000-0000-000000000006', 'EXCS-B', 'Electronics and Computer Science Engineering - Section B', 'b0000000-0000-0000-0000-000000000001', 'Operational Amplifier Circuit Design', '[Subject: Electrical Design Circuit] [Batch: Batch 3] Multi-stage amplifier configuration and closed-loop gain.', 'Project Report', '2026-10-15 23:59:59+00', 100, 2200, 8, 'Other', 1, 5, 8.00, 4),
+  ('e0000000-0000-0000-0000-000000000005', 'c0000000-0000-0000-0000-000000000006', 'EXCS-B', 'Electronics and Computer Science Engineering - Section B', 'b0000000-0000-0000-0000-000000000001', 'Data Processing and Automation Pipeline', '[Subject: Python Programming] [Batch: Batch 3] Automated parsing, vectorized transformations, and integrity pipelines.', 'Lab Report', '2026-10-18 23:59:59+00', 100, 1800, 6, 'Other', 2, 5, 11.00, 3)
 ON CONFLICT (id) DO UPDATE SET
   title = EXCLUDED.title,
   description = EXCLUDED.description;
@@ -88,9 +95,9 @@ ON CONFLICT (id) DO UPDATE SET
 -- 7. Submissions
 INSERT INTO public.submissions (id, submission_code, assignment_id, assignment_title, course_id, course_code, student_id, student_name, student_roll, version_number, status, submitted_at, is_final, similarity_percentage, matched_source_count, citation_issue_count, drafts_count)
 VALUES
-  ('f0000000-0000-0000-0000-000000000001', 'SUB-2026-09124', 'e0000000-0000-0000-0000-000000000001', 'Technical Report 02', 'c0000000-0000-0000-0000-000000000001', 'ENG-CSE-301', 'b0000000-0000-0000-0000-000000000002', 'Riya Sharma', '22CSE057', 3, 'needs_review', timezone('utc'::text, now()), true, 27.00, 6, 2, 3),
-  ('f0000000-0000-0000-0000-000000000002', 'SUB-2026-09125', 'e0000000-0000-0000-0000-000000000001', 'Technical Report 02', 'c0000000-0000-0000-0000-000000000001', 'ENG-CSE-301', 'b0000000-0000-0000-0000-000000000003', 'Aarav Mehta', '22CSE041', 2, 'reviewed', timezone('utc'::text, now()), true, 8.00, 2, 0, 2),
-  ('f0000000-0000-0000-0000-000000000003', 'SUB-2026-09126', 'e0000000-0000-0000-0000-000000000003', 'Lab Report 04', 'c0000000-0000-0000-0000-000000000001', 'ENG-CSE-301', 'b0000000-0000-0000-0000-000000000004', 'Kabir Patel', '22CSE063', 1, 'needs_review', timezone('utc'::text, now()), true, 41.00, 9, 3, 1)
+  ('f0000000-0000-0000-0000-000000000001', 'SUB-2026-09124', 'e0000000-0000-0000-0000-000000000001', 'Technical Report', 'c0000000-0000-0000-0000-000000000006', 'EXCS-B', 'b0000000-0000-0000-0000-000000000002', 'Aditya Gupta', '25108B0071', 3, 'needs_review', timezone('utc'::text, now()), true, 27.00, 6, 0, 3),
+  ('f0000000-0000-0000-0000-000000000002', 'SUB-2026-09125', 'e0000000-0000-0000-0000-000000000001', 'Technical Report', 'c0000000-0000-0000-0000-000000000006', 'EXCS-B', 'b0000000-0000-0000-0000-000000000003', 'Abaan Sakarwala', '25108C0005', 2, 'reviewed', timezone('utc'::text, now()), true, 8.00, 2, 0, 2),
+  ('f0000000-0000-0000-0000-000000000003', 'SUB-2026-09126', 'e0000000-0000-0000-0000-000000000002', 'Binary Search Tree Implementation Analysis', 'c0000000-0000-0000-0000-000000000006', 'EXCS-B', 'b0000000-0000-0000-0000-000000000004', 'Soham Waingade', '25108C0005', 1, 'needs_review', timezone('utc'::text, now()), true, 41.00, 9, 0, 1)
 ON CONFLICT (id) DO UPDATE SET
   status = EXCLUDED.status,
   similarity_percentage = EXCLUDED.similarity_percentage;

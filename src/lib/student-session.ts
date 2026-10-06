@@ -7,12 +7,15 @@ const EVENT_NAME = "verity:student-session-changed";
 
 const defaultStudentProfile: Profile = {
   id: "b0000000-0000-0000-0000-000000000002",
-  full_name: "Riya Sharma",
-  email: "riya.sharma@abcit.edu",
+  full_name: "Aditya Gupta",
+  email: "aditya.gupta@vit.edu.in",
   role: "student",
-  roll_number: "22CSE057",
+  roll_number: "25108B0071",
   institution_id: "a0000000-0000-0000-0000-000000000001",
-  department_name: "Computer Engineering",
+  department_name: "Electronics and Computer Science Engineering",
+  course_code: "EXCS-B",
+  section: "B",
+  batch: "Batch 3",
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };
