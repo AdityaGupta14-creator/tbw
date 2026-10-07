@@ -18,6 +18,7 @@ import {
   LogOut,
   Menu,
   MessageSquare,
+  Plus,
   Search,
   Settings,
   ShieldCheck,
@@ -65,7 +66,7 @@ const facultyNavGroups: NavGroup[] = [
     heading: "Submissions",
     items: [
       { label: "Submissions", to: "/submissions", icon: FileText },
-      { label: "Submission Upload", to: "/assignments/new", icon: Upload },
+      { label: "Create Assignment", to: "/assignments/new", icon: Plus },
     ],
   },
   {
@@ -119,7 +120,7 @@ const labels: Record<string, string> = {
   settings: "Settings",
   student: "Student Portal",
   admin: "Institution",
-  new: "New Assignment",
+  new: "Create Assignment",
   feedback: "Feedback",
   help: "Help",
 };
@@ -173,7 +174,7 @@ function SidebarContent({
           <div className="flex items-center justify-center px-3 py-1.5 h-9 bg-white rounded shadow-sm border border-black/5">
             <span className="text-xl font-bold tracking-tight leading-none">
               <span className="text-black">ver</span>
-              <span className="text-red-600">ity</span>
+              <span className="text-[#ff5734]">ity</span>
             </span>
           </div>
         </Link>
@@ -340,7 +341,7 @@ function Breadcrumbs() {
     <nav aria-label="Breadcrumb" className="hidden min-w-0 md:flex items-center">
       {pathname === "/dashboard" ? (
         <div className="flex items-baseline text-sm text-muted-foreground">
-          Welcome to <span className="ml-1.5 text-2xl font-bold text-foreground tracking-tight">Learn</span><span className="text-2xl font-bold text-brand tracking-tight">ify</span>
+          Welcome to <span className="ml-1.5 text-2xl font-bold tracking-tight"><span className="text-black dark:text-white">ver</span><span className="text-[#ff5734]">ity</span></span>
         </div>
       ) : (
         <ol className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
@@ -396,7 +397,7 @@ function SearchCommand({ open, setOpen }: { open: boolean; setOpen: (v: boolean)
         <CommandGroup heading="Pages">
           <CommandItem onSelect={() => go("/reports")}>Reports</CommandItem>
           <CommandItem onSelect={() => go("/compare")}>Document Comparison</CommandItem>
-          <CommandItem onSelect={() => go("/assignments/new")}>New Assignment</CommandItem>
+          <CommandItem onSelect={() => go("/assignments/new")}>Create Assignment</CommandItem>
           <CommandItem onSelect={() => go("/student")}>Student Portal</CommandItem>
           <CommandItem onSelect={() => go("/admin")}>Institution Dashboard</CommandItem>
         </CommandGroup>

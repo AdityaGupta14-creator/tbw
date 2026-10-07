@@ -77,7 +77,7 @@ export function StudentSwitcherDialog({ open, onOpenChange }: StudentSwitcherDia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-xl max-w-xl overflow-hidden p-5 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Users className="size-4 text-brand" />
@@ -89,8 +89,8 @@ export function StudentSwitcherDialog({ open, onOpenChange }: StudentSwitcherDia
         </DialogHeader>
 
         {!showAddForm ? (
-          <div className="space-y-4">
-            <div className="max-h-[300px] overflow-y-auto overflow-x-hidden space-y-1.5 pr-3">
+          <div className="space-y-4 w-full min-w-0 max-w-full overflow-hidden">
+            <div className="max-h-[320px] overflow-y-auto overflow-x-hidden space-y-2 pr-1.5 w-full min-w-0">
               {allStudents.map((s) => {
                 const isActive = s.id === currentStudent.id || s.roll_number === currentStudent.roll_number;
                 return (
@@ -98,56 +98,63 @@ export function StudentSwitcherDialog({ open, onOpenChange }: StudentSwitcherDia
                     key={s.id}
                     type="button"
                     onClick={() => handleSelectStudent(s.id)}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-md border text-left transition-all min-w-0 overflow-hidden ${
+                    className={`w-full max-w-full min-w-0 block text-left p-2.5 sm:p-3 rounded-xl border transition-all cursor-pointer ${
                       isActive
-                        ? "border-brand bg-brand/5 shadow-xs"
-                        : "border-border hover:bg-muted/50 hover:border-input"
+                        ? "border-brand bg-card shadow-xs ring-1 ring-brand/30"
+                        : "border-border/80 bg-card hover:bg-card/90 hover:border-input shadow-2xs"
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 flex-1 min-w-0 pr-3">
-                      <div
-                        className={`size-8 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${
-                          isActive
-                            ? "bg-brand text-brand-foreground"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {s.full_name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .slice(0, 2)
-                          .toUpperCase()}
+                    <div className="flex items-center justify-between gap-3 w-full min-w-0">
+                      <div className="flex items-center gap-2.5 sm:gap-3 flex-1 min-w-0 overflow-hidden">
+                        <div
+                          className={`size-8 sm:size-8.5 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${
+                            isActive
+                              ? "bg-brand text-brand-foreground shadow-xs"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {s.full_name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .slice(0, 2)
+                            .toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1 overflow-hidden">
+                          <p className="text-xs font-semibold text-foreground truncate block">
+                            {s.full_name}
+                          </p>
+                          <p
+                            className="num text-[11px] text-muted-foreground truncate block"
+                            title={`${s.roll_number || "Student"} · ${s.department_name || "Electronics and Computer Science Engineering"} (Section ${s.section || "B"}, ${s.batch || "Batch 3"})`}
+                          >
+                            {s.roll_number || "Student"} · {s.department_name || "Electronics and Computer Science Engineering"} (Section {s.section || "B"}, {s.batch || "Batch 3"})
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-foreground truncate">
-                          {s.full_name}
-                        </p>
-                        <p className="num text-[11px] text-muted-foreground truncate">
-                          {s.roll_number || "Student"} · {s.department_name || "Electronics and Computer Science Engineering"} (Section {s.section || "B"}, {s.batch || "Batch 3"})
-                        </p>
+                      <div className="shrink-0 flex items-center pl-1">
+                        {isActive ? (
+                          <span className="flex items-center gap-1 text-[11px] font-semibold text-brand bg-brand/10 px-2.5 py-0.5 rounded-full whitespace-nowrap">
+                            <Check className="size-3" /> Active
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-medium text-muted-foreground bg-muted/60 px-2.5 py-0.5 rounded-md whitespace-nowrap hover:text-foreground">
+                            Select
+                          </span>
+                        )}
                       </div>
                     </div>
-                    {isActive ? (
-                      <span className="shrink-0 flex items-center gap-1 text-[11px] font-semibold text-brand bg-brand/10 px-2 py-0.5 rounded-full">
-                        <Check className="size-3" /> Active
-                      </span>
-                    ) : (
-                      <span className="shrink-0 text-[11px] text-muted-foreground hover:text-foreground">
-                        Select
-                      </span>
-                    )}
                   </button>
                 );
               })}
             </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-border">
+            <div className="flex items-center justify-between pt-2.5 border-t border-border/80 gap-2 w-full min-w-0">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs gap-1.5"
+                className="h-8 text-xs gap-1.5 shrink-0 bg-card hover:bg-card/80"
                 onClick={() => setShowAddForm(true)}
               >
                 <Plus className="size-3.5" /> Enroll New Student
@@ -157,7 +164,7 @@ export function StudentSwitcherDialog({ open, onOpenChange }: StudentSwitcherDia
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-8 text-xs text-danger hover:text-danger hover:bg-danger/10 gap-1.5"
+                className="h-8 text-xs text-danger hover:text-danger hover:bg-danger/10 gap-1.5 shrink-0"
                 onClick={handleLogout}
               >
                 <LogOut className="size-3.5" /> Log Out
@@ -165,7 +172,7 @@ export function StudentSwitcherDialog({ open, onOpenChange }: StudentSwitcherDia
             </div>
           </div>
         ) : (
-          <form onSubmit={handleCreateStudent} className="space-y-3.5">
+          <form onSubmit={handleCreateStudent} className="space-y-3.5 w-full min-w-0">
             <div className="space-y-1">
               <Label htmlFor="new-name" className="text-xs">
                 Full Name
@@ -184,7 +191,7 @@ export function StudentSwitcherDialog({ open, onOpenChange }: StudentSwitcherDia
               </Label>
               <Input
                 id="new-roll"
-                placeholder="e.g. 23CSE088"
+                placeholder="e.g. 25108k002"
                 value={newRoll}
                 onChange={(e) => setNewRoll(e.target.value)}
                 required
@@ -204,7 +211,7 @@ export function StudentSwitcherDialog({ open, onOpenChange }: StudentSwitcherDia
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+            <div className="flex justify-end gap-2 pt-2.5 border-t border-border/80">
               <Button
                 type="button"
                 variant="ghost"

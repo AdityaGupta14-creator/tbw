@@ -414,7 +414,7 @@ export const verityApi = {
           let query = supabase
             .from("submissions")
             .select(
-              "*, student:profiles!student_id(full_name, roll_number), document:documents(*), analysis:analyses(*, matches:similarity_matches(*)), feedback:feedback(*), review:submission_reviews(*), review_audit:review_audit_log(*)"
+              "*, student:profiles!student_id(full_name, roll_number), document:documents(*), analysis:analyses(*, matches:similarity_matches(*)), feedback:feedback(*)"
             );
 
           if (isUuid(id)) {
@@ -439,12 +439,6 @@ export const verityApi = {
               : data.feedback
               ? [data.feedback]
               : [];
-            const rev = Array.isArray(data.review) ? data.review[0] : data.review;
-            const revAudit = Array.isArray(data.review_audit)
-              ? data.review_audit
-              : data.review_audit
-              ? [data.review_audit]
-              : [];
 
             const completeSub: Submission = {
               ...(data as any),
@@ -453,8 +447,8 @@ export const verityApi = {
               document: doc || localExisting?.document || null,
               analysis: (ana && ana.status) ? ana : (localExisting?.analysis || null),
               feedback: fb.length > 0 ? fb : (localExisting?.feedback || []),
-              review: rev || localExisting?.review || undefined,
-              review_audit: revAudit.length > 0 ? revAudit : (localExisting?.review_audit || []),
+              review: localExisting?.review || undefined,
+              review_audit: localExisting?.review_audit || [],
             };
 
             // Cache in local in-memory DB so other components have instantaneous access
@@ -467,6 +461,27 @@ export const verityApi = {
         }
       }
       return db.getSubmissionById(id);
+    },
+
+    async getByStudentAndAssignment(
+      studentIdOrRoll: string,
+      assignmentIdOrTitle: string
+    ): Promise<Submission | undefined> {
+      const all = await verityApi.submissions.list();
+      const match = all.find((s) => {
+        const matchesStudent =
+          (s.student_id && s.student_id.toLowerCase() === studentIdOrRoll.toLowerCase()) ||
+          (s.student_roll && s.student_roll.toLowerCase() === studentIdOrRoll.toLowerCase()) ||
+          (s.student_name && s.student_name.toLowerCase() === studentIdOrRoll.toLowerCase());
+        const matchesAssignment =
+          (s.assignment_id && s.assignment_id.toLowerCase() === assignmentIdOrTitle.toLowerCase()) ||
+          (s.assignment_title && s.assignment_title.toLowerCase() === assignmentIdOrTitle.toLowerCase());
+        return matchesStudent && matchesAssignment;
+      });
+      if (match) {
+        return verityApi.submissions.get(match.id);
+      }
+      return undefined;
     },
 
     async submit(params: {
@@ -1512,7 +1527,83 @@ export const verityApi = {
           console.warn("Supabase notifications.create fallback:", e);
         }
       }
-      return local;
+    },
+  },
+
+  // Document & Peer Comparison Service
+  compare: {
+    async compareSubmissions(submissionAId: string, submissionBId: string) {
+      const subA = await verityApi.submissions.get(submissionAId);
+      const subB = await verityApi.submissions.get(submissionBId);
+      const textA = subA?.document?.extracted_text || "";
+      const textB = subB?.document?.extracted_text || "";
+      return {
+        comparison: compareTwoDocuments(
+          textA,
+          textB,
+          subB?.student_name || "Comparison Student",
+          "student_submission"
+        ),
+        submissionA: subA,
+        submissionB: subB,
+      };
+    },
+
+    async compareStudents(
+      studentAIdOrRoll: string,
+      studentBIdOrRoll: string,
+      assignmentIdOrTitle?: string
+    ) {
+      const all = await verityApi.submissions.list();
+      const normalize = (val?: string) => (val || "").trim().toLowerCase();
+
+      const filterForStudent = (s: Submission, idOrRoll: string) => {
+        const target = normalize(idOrRoll);
+        return (
+          normalize(s.student_id) === target ||
+          normalize(s.student_roll) === target ||
+          normalize(s.student_name) === target
+        );
+      };
+
+      let matchA: Submission | undefined;
+      let matchB: Submission | undefined;
+
+      if (assignmentIdOrTitle) {
+        const asgTarget = normalize(assignmentIdOrTitle);
+        matchA = all.find(
+          (s) =>
+            filterForStudent(s, studentAIdOrRoll) &&
+            (normalize(s.assignment_id) === asgTarget ||
+              normalize(s.assignment_title) === asgTarget)
+        );
+        matchB = all.find(
+          (s) =>
+            filterForStudent(s, studentBIdOrRoll) &&
+            (normalize(s.assignment_id) === asgTarget ||
+              normalize(s.assignment_title) === asgTarget)
+        );
+      } else {
+        matchA = all.find((s) => filterForStudent(s, studentAIdOrRoll));
+        matchB = all.find((s) => filterForStudent(s, studentBIdOrRoll));
+      }
+
+      const fullA = matchA ? await verityApi.submissions.get(matchA.id) : undefined;
+      const fullB = matchB ? await verityApi.submissions.get(matchB.id) : undefined;
+
+      const textA = fullA?.document?.extracted_text || "";
+      const textB = fullB?.document?.extracted_text || "";
+
+      return {
+        comparison: compareTwoDocuments(
+          textA,
+          textB,
+          fullB?.student_name || "Comparison Student",
+          "student_submission"
+        ),
+        submissionA: fullA,
+        submissionB: fullB,
+      };
     },
   },
 };
