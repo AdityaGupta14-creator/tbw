@@ -309,18 +309,18 @@ export function SubmissionDocumentTab({
 
               if (hasMatch) {
                 const isPeerMatch = p.match.sourceType === "student_submission";
-                const isStrong = p.match.evidenceLevel === "strong" || (p.match.percent ?? 0) >= 40;
+                const isStrong = p.match.evidenceLevel === "strong" || (p.match.percent ?? 0) >= 70;
 
                 if (isPeerMatch) {
-                  highlightClass = "bg-indigo-100/70 dark:bg-indigo-950/40 border-b-2 border-indigo-500 hover:bg-indigo-200/70";
+                  highlightClass = "bg-indigo-50/90 dark:bg-indigo-950/40 border-l-4 border-l-indigo-600 border border-indigo-200/80 dark:border-indigo-800/80 shadow-xs";
                   badgeColor = "bg-indigo-600 text-white";
-                  badgeLabel = "Peer Match";
+                  badgeLabel = p.match.percent ? `${p.match.percent}% Peer Match` : "Peer Match";
                 } else if (isStrong) {
-                  highlightClass = "bg-rose-100/70 dark:bg-rose-950/40 border-b-2 border-rose-500 hover:bg-rose-200/70";
+                  highlightClass = "bg-rose-50/90 dark:bg-rose-950/40 border-l-4 border-l-rose-600 border border-rose-200/80 dark:border-rose-800/80 shadow-xs";
                   badgeColor = "bg-rose-600 text-white";
                   badgeLabel = `${p.match.percent}% Strong`;
                 } else {
-                  highlightClass = "bg-amber-100/70 dark:bg-amber-950/40 border-b-2 border-amber-500 hover:bg-amber-200/70";
+                  highlightClass = "bg-amber-50/90 dark:bg-amber-950/40 border-l-4 border-l-amber-500 border border-amber-200/80 dark:border-amber-800/80 shadow-xs";
                   badgeColor = "bg-amber-600 text-white";
                   badgeLabel = `${p.match.percent}% Overlap`;
                 }
@@ -350,9 +350,9 @@ export function SubmissionDocumentTab({
                     </h2>
                   )}
 
-                  <p className="relative">
+                  <div className="relative">
                     {hasMatch ? (
-                      <span
+                      <div
                         onClick={() => {
                           const matchObj = {
                             sourceId: p.match.sourceId,
@@ -376,18 +376,23 @@ export function SubmissionDocumentTab({
                           setSelectedMatch(matchObj);
                           onOpenEvidenceDialog(matchObj);
                         }}
-                        className={`cursor-pointer rounded px-1 py-0.5 transition-colors ${highlightClass}`}
+                        className={`cursor-pointer rounded-md p-3 transition-all block ${highlightClass} hover:ring-2 hover:ring-indigo-400/40`}
                         title="Click to view full match evidence"
                       >
-                        {p.text}
-                        <span className={`num ml-1.5 inline-block rounded px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-tight align-super ${badgeColor}`}>
-                          {badgeLabel}
-                        </span>
-                      </span>
+                        <p className="text-foreground leading-relaxed">{p.text}</p>
+                        <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-border/50 pt-2 font-sans">
+                          <span className={`num inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight ${badgeColor}`}>
+                            {badgeLabel}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground font-medium">
+                            Source: <span className="text-foreground font-semibold">{p.match.sourceTitle || p.match.sourceId}</span> ({p.match.words || 0} words)
+                          </span>
+                        </div>
+                      </div>
                     ) : (
-                      p.text
+                      <p className="text-foreground leading-relaxed">{p.text}</p>
                     )}
-                  </p>
+                  </div>
 
                   {/* Inline Citation Alert if paragraph has a citation discrepancy */}
                   {paragraphCitationIssue && highlightsEnabled && (

@@ -58,6 +58,8 @@ export interface SentenceSpan {
   isMathFormula?: boolean;
   isBoilerplate?: boolean;
   isCited?: boolean;
+  hasParagraphBreakBefore?: boolean;
+  paragraphIdx?: number;
 }
 
 export interface DetailedEvidenceScore {

@@ -301,7 +301,7 @@ export function isHeadingText(text: string): boolean {
   const trimmed = text.trim();
   if (trimmed.length > 70) return false;
   return (
-    /^(?:abstract|introduction|methodology|experimental setup|results|discussion|conclusion|references|bibliography|acknowledgements)$/i.test(trimmed) ||
+    /^(?:abstract|introduction|methodology|experimental setup|results|discussion|conclusion|references|bibliography|acknowledgements|statement of purpose|sop)$/i.test(trimmed) ||
     /^\d+(\.\d+)*\s+[A-Za-z]/.test(trimmed) ||
     /^[A-Z0-9\s—–:-]{4,50}$/.test(trimmed)
   );
@@ -437,6 +437,8 @@ export function segmentIntoSentenceSpans(documentText: string, promptText?: stri
 
   let cur = 0;
   let idx = 0;
+  let prevEnd = 0;
+  let paragraphIdx = 0;
 
   while (cur < textLen) {
     // Skip leading whitespace and blank lines
@@ -444,6 +446,11 @@ export function segmentIntoSentenceSpans(documentText: string, promptText?: stri
     if (cur >= textLen) break;
 
     const start = cur;
+    const textBetween = cur > 0 ? documentText.slice(prevEnd, start) : "";
+    const hasParagraphBreakBefore = idx > 0 && /\n\s*\n|\r\n\s*\r\n/.test(textBetween);
+    if (hasParagraphBreakBefore) {
+      paragraphIdx++;
+    }
     let end = cur;
 
     while (end < textLen) {
@@ -553,6 +560,8 @@ export function segmentIntoSentenceSpans(documentText: string, promptText?: stri
               isMathFormula,
               isBoilerplate: isCommon,
               isCited,
+              hasParagraphBreakBefore,
+              paragraphIdx,
             });
             idx++;
           }
@@ -583,6 +592,8 @@ export function segmentIntoSentenceSpans(documentText: string, promptText?: stri
               isMathFormula,
               isBoilerplate: isCommon,
               isCited,
+              hasParagraphBreakBefore,
+              paragraphIdx,
             });
             idx++;
           }
@@ -605,11 +616,14 @@ export function segmentIntoSentenceSpans(documentText: string, promptText?: stri
           isMathFormula,
           isBoilerplate: isCommon,
           isCited,
+          hasParagraphBreakBefore,
+          paragraphIdx,
         });
         idx++;
       }
     }
 
+    prevEnd = end;
     cur = end;
   }
 

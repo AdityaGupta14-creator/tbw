@@ -311,26 +311,68 @@ function SubmissionReviewPage() {
 
         const textToDisplay = dbSub.document?.extracted_text;
         if (textToDisplay && textToDisplay.trim().length > 0) {
-          const rawParas = textToDisplay
-            .split(/\n\s*\n/)
-            .map((p) => p.trim())
-            .filter(Boolean);
+          const rawParagraphs: { id: string; heading?: string; text: string }[] =
+            (dbSub.document?.paragraphs && dbSub.document.paragraphs.length > 0)
+              ? dbSub.document.paragraphs
+              : textToDisplay
+                  .split(/\n\s*\n/)
+                  .map((p) => p.trim())
+                  .filter(Boolean)
+                  .map((p, idx) => ({ id: `p-${idx + 1}`, text: p }));
 
-          if (rawParas.length > 0) {
-            const formattedParas = rawParas.map((pText, i) => {
-              const pObj = (dbSub.analysis?.passages?.[i] || dbSub.analysis?.matches?.[i]) as any;
+          if (rawParagraphs.length > 0) {
+            let runningCharOffset = 0;
+            const formattedParas = rawParagraphs.map((paraObj, i) => {
+              const pText = typeof paraObj === "string" ? paraObj : paraObj.text;
+              const pId = (typeof paraObj === "object" && paraObj.id) ? paraObj.id : `p-${i + 1}`;
+              const pHeading = (typeof paraObj === "object" && paraObj.heading)
+                ? paraObj.heading
+                : (i === 0 && rawParagraphs.length > 1 && !/statement of purpose/i.test(pText) ? "1. Submitted Report Content" : undefined);
+
+              // Find character offsets in textToDisplay
+              const pStart = textToDisplay.indexOf(pText, runningCharOffset);
+              const pEnd = pStart >= 0 ? pStart + pText.length : runningCharOffset + pText.length;
+              if (pStart >= 0) {
+                runningCharOffset = pEnd;
+              }
+
+              // Find matching passage for this paragraph
+              const pObj = (dbSub.analysis?.passages?.find((passage: any) => {
+                if (!passage) return false;
+                if (typeof passage.start_char === "number" && typeof passage.end_char === "number" && pStart >= 0) {
+                  return Math.max(pStart, passage.start_char) < Math.min(pEnd, passage.end_char);
+                }
+                if (passage.student_text) {
+                  const cleanP = pText.trim().toLowerCase();
+                  const cleanPsg = passage.student_text.trim().toLowerCase();
+                  return cleanPsg.length >= 15 && (cleanP.includes(cleanPsg.slice(0, 35)) || cleanPsg.includes(cleanP.slice(0, 35)));
+                }
+                return false;
+              })) || (dbSub.analysis?.matches?.find((m: any) => {
+                if (!m) return false;
+                if (typeof m.start_position === "number" && typeof m.end_position === "number" && pStart >= 0) {
+                  return Math.max(pStart, m.start_position) < Math.min(pEnd, m.end_position);
+                }
+                if (m.matched_text) {
+                  const cleanP = pText.trim().toLowerCase();
+                  const cleanM = m.matched_text.trim().toLowerCase();
+                  return cleanM.length >= 15 && (cleanP.includes(cleanM.slice(0, 35)) || cleanM.includes(cleanP.slice(0, 35)));
+                }
+                return false;
+              })) || (dbSub.analysis?.passages?.length === rawParagraphs.length ? dbSub.analysis?.passages?.[i] : undefined);
+
               return {
-                id: `p-${i + 1}`,
-                heading: i === 0 ? "1. Submitted Report Content" : undefined,
+                id: pId,
+                heading: pHeading,
                 text: pText,
                 match: pObj
                   ? {
-                      sourceId: pObj.source_name || "src-1",
+                      sourceId: pObj.source_name || pObj.source_title || "src-1",
                       percent: pObj.similarity_percentage,
-                      words: pObj.matched_words || 36,
+                      words: pObj.matched_words || Math.min(pText.split(/\s+/).filter(Boolean).length, 36),
                       studentText: pObj.student_text || pObj.matched_text || pText,
                       sourceText: pObj.source_text || pObj.source_matched_text || "",
-                      evidenceLevel: pObj.evidence_level || "strong",
+                      evidenceLevel: pObj.evidence_level || "moderate",
                       reasons: pObj.reasons || ["Contiguous technical text overlap detected"],
                       exactSimilarity: pObj.exact_similarity,
                       fuzzySimilarity: pObj.fuzzy_similarity,

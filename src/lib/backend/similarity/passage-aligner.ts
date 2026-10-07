@@ -55,8 +55,12 @@ export function alignAndMergePassages(
 
       const prev = currentGroup[currentGroup.length - 1]!;
       const gap = match.studentSentence.idx - prev.studentSentence.idx - 1;
+      const isSameParagraph =
+        match.studentSentence.paragraphIdx !== undefined && prev.studentSentence.paragraphIdx !== undefined
+          ? match.studentSentence.paragraphIdx === prev.studentSentence.paragraphIdx
+          : !match.studentSentence.hasParagraphBreakBefore;
 
-      if (gap <= maxSentenceGap) {
+      if (isSameParagraph && gap <= maxSentenceGap) {
         currentGroup.push(match);
       } else {
         // Emit accumulated group as merged passage
@@ -144,10 +148,10 @@ function createPassageFromGroup(
     similarityPercentage >= 45 ||
     avgFuzzy >= 55 ||
     (avgSemantic >= 52 && (avgFuzzy >= 45 || avgExact >= 25)) ||
-    (group.length >= 2 && avgSemantic >= 55)
+    (group.length >= 2 && (avgSemantic >= 50 || avgFuzzy >= 45 || similarityPercentage >= 35))
   ) {
     evidenceLevel = "moderate";
-    if (avgSemantic >= 52 && avgExact < 50) {
+    if (avgSemantic >= 50 && avgExact < 50) {
       reasons.push("Paraphrasing detected: sentence restructuring with semantic preservation");
     } else {
       reasons.push("Moderate lexical overlap with sentence substitutions or insertions");
@@ -221,7 +225,18 @@ export function calculateUniqueWordOverlap(
 
     const levelWeight = passage.evidence_level === "strong" ? 3 : passage.evidence_level === "moderate" ? 2 : 1;
 
-    for (let i = startToken; i < Math.min(totalWords, startToken + passageTokensCount); i++) {
+    // Accurate matched words bounding to prevent 100% false saturation on partially matching passages
+    const wordsToMark = (passage.evidence_level === "strong" && (passage.similarity_percentage ?? 0) >= 80)
+      ? passageTokensCount
+      : Math.min(
+          passageTokensCount,
+          Math.max(
+            passage.matched_words || 0,
+            Math.round(passageTokensCount * ((passage.similarity_percentage || 0) / 100))
+          )
+        );
+
+    for (let i = startToken; i < Math.min(totalWords, startToken + wordsToMark); i++) {
       if (levelWeight > matchedMask[i]!) {
         matchedMask[i] = levelWeight;
       }
