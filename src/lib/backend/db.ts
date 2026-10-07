@@ -2049,18 +2049,27 @@ class DatabaseManager {
 
     // Trigger student notification
     const sub = this.getSubmissionById(submissionId, "faculty");
-    if (sub && sub.student_id) {
-      this.createNotification({
-        student_id: sub.student_id,
-        submission_id: sub.id,
-        assignment_id: sub.assignment_id,
-        assignment_title: sub.assignment_title,
-        course_code: sub.course_code,
-        type: "faculty_feedback",
-        title: "Faculty Feedback Added",
-        message: `Your faculty reviewer added feedback on "${sub.assignment_title}": "${comment.slice(0, 120)}${comment.length > 120 ? "..." : ""}"`,
-        action_url: `/submissions/${sub.id}`,
-      });
+    if (sub) {
+      const studentProfile = this.state.profiles.find(
+        (p) =>
+          (sub.student_id && p.id === sub.student_id) ||
+          (sub.student_roll && p.roll_number?.toLowerCase() === sub.student_roll.toLowerCase()) ||
+          (sub.student_name && p.full_name?.toLowerCase() === sub.student_name.toLowerCase())
+      );
+      const studentTargetId = studentProfile?.id || sub.student_id || sub.student_roll;
+      if (studentTargetId) {
+        this.createNotification({
+          student_id: studentTargetId,
+          submission_id: sub.id,
+          assignment_id: sub.assignment_id,
+          assignment_title: sub.assignment_title,
+          course_code: sub.course_code,
+          type: "faculty_feedback",
+          title: `Faculty Feedback: ${sub.assignment_title || "Assignment"}`,
+          message: `Your faculty reviewer added feedback: "${comment.slice(0, 120)}${comment.length > 120 ? "..." : ""}"`,
+          action_url: "/student/feedback",
+        });
+      }
     }
 
     this.saveState(this.state);
@@ -2444,13 +2453,91 @@ class DatabaseManager {
     return sub.review;
   }
 
+  public sendCandidateFeedback(
+    submissionId: string,
+    feedbackText: string,
+    rubricScores?: Array<{ criterion: string; score: number; max: number }>,
+    actor?: Profile
+  ): SubmissionReview {
+    const sub = this.getSubmissionById(submissionId, "faculty");
+    if (!sub) throw new Error(`Submission ${submissionId} not found`);
+
+    const currentActor = actor || this.state.currentUser;
+    const now = new Date().toISOString();
+
+    if (!sub.review) {
+      sub.review = {
+        id: `rev-${Date.now()}`,
+        submission_id: sub.id,
+        reviewer_id: currentActor.id,
+        reviewer_name: currentActor.full_name,
+        status: "in_review",
+        reviewed_passages: [],
+        created_at: now,
+        updated_at: now,
+      };
+    } else {
+      sub.review.updated_at = now;
+    }
+
+    sub.review.general_feedback = feedbackText;
+    if (rubricScores && rubricScores.length > 0) {
+      sub.review.rubric_scores = rubricScores;
+      sub.review.rubric_total = rubricScores.reduce((acc, curr) => acc + curr.score, 0);
+      sub.review.rubric_max = rubricScores.reduce((acc, curr) => acc + curr.max, 0);
+    }
+
+    if (!sub.review_audit) sub.review_audit = [];
+    sub.review_audit.push({
+      id: `aud-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      submission_id: sub.id,
+      review_id: sub.review.id,
+      actor_id: currentActor.id,
+      actor_name: currentActor.full_name,
+      actor_role: currentActor.role,
+      action: "FEEDBACK_SENT",
+      previous_status: sub.review.status,
+      new_status: sub.review.status,
+      notes: `Feedback sent to student: "${feedbackText.slice(0, 100)}${feedbackText.length > 100 ? "..." : ""}"`,
+      metadata: { feedbackText, rubricScores },
+      created_at: now,
+    });
+
+    // Notify the student
+    const studentProfile = this.state.profiles.find(
+      (p) =>
+        (sub.student_id && p.id === sub.student_id) ||
+        (sub.student_roll && p.roll_number?.toLowerCase() === sub.student_roll.toLowerCase()) ||
+        (sub.student_name && p.full_name?.toLowerCase() === sub.student_name.toLowerCase())
+    );
+    const studentTargetId = studentProfile?.id || sub.student_id || sub.student_roll;
+    if (studentTargetId) {
+      this.createNotification({
+        student_id: studentTargetId,
+        submission_id: sub.id,
+        assignment_id: sub.assignment_id,
+        assignment_title: sub.assignment_title,
+        course_code: sub.course_code,
+        type: "faculty_feedback",
+        title: `Faculty Feedback: ${sub.assignment_title || "Assignment"}`,
+        message: feedbackText.slice(0, 160) + (feedbackText.length > 160 ? "..." : ""),
+        action_url: "/student/feedback",
+      });
+    }
+
+    this.saveState(this.state);
+    return sub.review;
+  }
+
   public recordReviewDecision(
     submissionId: string,
     decision: ReviewDecision,
     rationale: string,
     facultyNotes?: string,
     newStatus: ReviewStatus = "reviewed",
-    actor?: Profile
+    actor?: Profile,
+    generalFeedback?: string,
+    rubricScores?: Array<{ criterion: string; score: number; max: number }>
   ): SubmissionReview {
     const sub = this.getSubmissionById(submissionId, "faculty");
     if (!sub) throw new Error(`Submission ${submissionId} not found`);
@@ -2487,6 +2574,14 @@ class DatabaseManager {
     if (facultyNotes !== undefined) {
       sub.review.faculty_notes = facultyNotes;
     }
+    if (generalFeedback !== undefined) {
+      sub.review.general_feedback = generalFeedback;
+    }
+    if (rubricScores && rubricScores.length > 0) {
+      sub.review.rubric_scores = rubricScores;
+      sub.review.rubric_total = rubricScores.reduce((acc, curr) => acc + curr.score, 0);
+      sub.review.rubric_max = rubricScores.reduce((acc, curr) => acc + curr.max, 0);
+    }
 
     if (newStatus === "reviewed") {
       sub.status = "reviewed";
@@ -2504,21 +2599,29 @@ class DatabaseManager {
       previous_status: prevStatus,
       new_status: newStatus,
       notes: `Decision recorded: ${decision}. Rationale: ${rationale}`,
-      metadata: { decision, rationale, faculty_notes: facultyNotes },
+      metadata: { decision, rationale, faculty_notes: facultyNotes, generalFeedback, rubricScores },
       created_at: now,
     });
 
-    if (sub.student_id) {
+    const studentProfile = this.state.profiles.find(
+      (p) =>
+        (sub.student_id && p.id === sub.student_id) ||
+        (sub.student_roll && p.roll_number?.toLowerCase() === sub.student_roll.toLowerCase()) ||
+        (sub.student_name && p.full_name?.toLowerCase() === sub.student_name.toLowerCase())
+    );
+    const studentTargetId = studentProfile?.id || sub.student_id || sub.student_roll;
+    if (studentTargetId) {
+      const feedbackSnippet = generalFeedback || rationale;
       this.createNotification({
-        student_id: sub.student_id,
+        student_id: studentTargetId,
         submission_id: sub.id,
         assignment_id: sub.assignment_id,
         assignment_title: sub.assignment_title,
         course_code: sub.course_code,
         type: "review_completed",
-        title: "Review Decision Recorded",
-        message: `Your submission for "${sub.assignment_title}" has been reviewed. Faculty decision: ${decision.replace(/_/g, " ").toUpperCase()}. Public feedback: "${rationale.slice(0, 100)}${rationale.length > 100 ? "..." : ""}"`,
-        action_url: `/submissions/${sub.id}`,
+        title: `Review Decision: ${sub.assignment_title || "Assignment"}`,
+        message: `Decision: ${decision.replace(/_/g, " ").toUpperCase()}. Reviewer notes: "${feedbackSnippet.slice(0, 120)}${feedbackSnippet.length > 120 ? "..." : ""}"`,
+        action_url: "/student/feedback",
       });
     }
 
@@ -2531,7 +2634,24 @@ class DatabaseManager {
     const targetStudentId = studentId || (this.state.currentUser.role === "student" ? this.state.currentUser.id : undefined);
     let list = this.state.notifications || [];
     if (targetStudentId) {
-      list = list.filter((n) => n.student_id === targetStudentId);
+      const sObj = this.state.profiles.find(
+        (p) =>
+          p.id === targetStudentId ||
+          (p.roll_number && p.roll_number.toLowerCase() === targetStudentId.toLowerCase())
+      );
+      const studentRoll = sObj?.roll_number?.toLowerCase();
+      const sId = sObj?.id?.toLowerCase();
+      const targetLower = targetStudentId.toLowerCase();
+
+      list = list.filter((n) => {
+        const nId = n.student_id?.toLowerCase();
+        return (
+          n.student_id === targetStudentId ||
+          (sId && nId === sId) ||
+          (studentRoll && nId === studentRoll) ||
+          nId === targetLower
+        );
+      });
     }
     return [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
@@ -2563,6 +2683,7 @@ class DatabaseManager {
       // Update message and reset unread if updated
       existing.message = data.message;
       existing.title = data.title;
+      if (data.action_url) existing.action_url = data.action_url;
       existing.is_read = false;
       delete existing.read_at;
       existing.created_at = new Date().toISOString();

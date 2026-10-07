@@ -220,6 +220,7 @@ function SubmissionReviewPage() {
   const [responseDialogOpen, setResponseDialogOpen] = useState<boolean>(false);
   const [studentExplanationResponse, setStudentExplanationResponse] = useState<string>("");
   const [passageNotesText, setPassageNotesText] = useState<string>("");
+  const [isSendingFeedback, setIsSendingFeedback] = useState<boolean>(false);
 
   useEffect(() => {
     const targetId = submissionId || initialSubmission.id;
@@ -250,6 +251,10 @@ function SubmissionReviewPage() {
         if (rev.decision) setSelectedDecision(rev.decision);
         if (rev.decision_rationale) setDecisionRationale(rev.decision_rationale);
         if (rev.faculty_notes) setFacultyNotesText(rev.faculty_notes);
+        if (rev.general_feedback) setGeneralFeedback(rev.general_feedback);
+        if (rev.rubric_scores && rev.rubric_scores.length > 0) {
+          setRubricScores(rev.rubric_scores);
+        }
       }
     });
 
@@ -267,6 +272,10 @@ function SubmissionReviewPage() {
           if (dbSub.review.decision) setSelectedDecision(dbSub.review.decision);
           if (dbSub.review.decision_rationale) setDecisionRationale(dbSub.review.decision_rationale);
           if (dbSub.review.faculty_notes) setFacultyNotesText(dbSub.review.faculty_notes);
+          if (dbSub.review.general_feedback) setGeneralFeedback(dbSub.review.general_feedback);
+          if (dbSub.review.rubric_scores && dbSub.review.rubric_scores.length > 0) {
+            setRubricScores(dbSub.review.rubric_scores);
+          }
         }
         if (dbSub.review_audit && dbSub.review_audit.length > 0) {
           setAuditTrail(dbSub.review_audit);
@@ -642,6 +651,30 @@ function SubmissionReviewPage() {
     }
   };
 
+  const handleSendFeedback = async () => {
+    if (!generalFeedback.trim()) {
+      toast.error("Please enter feedback before sending to the student.");
+      return;
+    }
+    try {
+      setIsSendingFeedback(true);
+      const targetId = submission.id || submissionId;
+      const updated = await verityApi.reviews.sendFeedback(
+        targetId,
+        generalFeedback.trim(),
+        rubricScores
+      );
+      setReviewRecord(updated);
+      const trail = await verityApi.reviews.getAuditTrail(targetId);
+      setAuditTrail(trail);
+      toast.success("Feedback sent to student and notification dispatched to their dashboard!");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to send feedback to student.");
+    } finally {
+      setIsSendingFeedback(false);
+    }
+  };
+
   const handleRecordDecision = async () => {
     if (!selectedDecision) {
       toast.error("Please select a formal academic decision.");
@@ -658,13 +691,15 @@ function SubmissionReviewPage() {
         selectedDecision as ReviewDecision,
         decisionRationale.trim(),
         facultyNotesText.trim() || undefined,
-        "reviewed"
+        "reviewed",
+        generalFeedback.trim() || undefined,
+        rubricScores
       );
       setReviewRecord(updated);
       setSubmission((prev: any) => ({ ...prev, status: "reviewed" }));
       const trail = await verityApi.reviews.getAuditTrail(targetId);
       setAuditTrail(trail);
-      toast.success("Formal review decision recorded and case closed!");
+      toast.success("Formal review decision recorded and notified to student!");
     } catch (e: any) {
       toast.error(e?.message || "Failed to record decision.");
     }
@@ -996,6 +1031,8 @@ function SubmissionReviewPage() {
             activePassages={activePassages}
             currentUserRole={currentUserRole}
             submission={submission}
+            onSendFeedback={handleSendFeedback}
+            isSendingFeedback={isSendingFeedback}
           />
         )}
 

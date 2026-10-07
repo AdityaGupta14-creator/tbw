@@ -435,6 +435,10 @@ export interface SubmissionReview {
   decision?: ReviewDecision | undefined;
   decision_rationale?: string | undefined;
   faculty_notes?: string | undefined;
+  general_feedback?: string | undefined;
+  rubric_scores?: Array<{ criterion: string; score: number; max: number }> | undefined;
+  rubric_total?: number | undefined;
+  rubric_max?: number | undefined;
   reviewed_passages?: ReviewedPassageRecord[] | undefined;
   student_explanation_request?: string | undefined;
   student_explanation_requested_at?: string | undefined;
@@ -450,6 +454,7 @@ export type ReviewAuditAction =
   | "EXPLANATION_REQUESTED"
   | "EXPLANATION_RECEIVED"
   | "DECISION_RECORDED"
+  | "FEEDBACK_SENT"
   | "NOTES_UPDATED"
   | "STATUS_TRANSITION"
   | "RE_ANALYZED";

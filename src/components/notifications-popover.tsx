@@ -66,7 +66,14 @@ export function NotificationsPopover({ studentId, className }: NotificationsPopo
   useEffect(() => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 5000);
-    return () => clearInterval(interval);
+    const handleUpdate = () => fetchNotifications();
+    window.addEventListener("verity:notifications-updated", handleUpdate);
+    window.addEventListener("verity:student-session-changed", handleUpdate);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("verity:notifications-updated", handleUpdate);
+      window.removeEventListener("verity:student-session-changed", handleUpdate);
+    };
   }, [fetchNotifications]);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
@@ -103,7 +110,9 @@ export function NotificationsPopover({ studentId, className }: NotificationsPopo
     }
     setOpen(false);
     if (n.action_url) {
-      if (n.action_url.startsWith("/submissions/")) {
+      if (n.action_url === "/student/feedback" || n.type === "faculty_feedback") {
+        navigate({ to: "/student/feedback" });
+      } else if (n.action_url.startsWith("/submissions/")) {
         const subId = n.action_url.replace("/submissions/", "");
         navigate({ to: "/submissions/$submissionId", params: { submissionId: subId } });
       } else {

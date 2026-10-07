@@ -870,6 +870,10 @@ export const verityApi = {
         }
       }
 
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("verity:notifications-updated"));
+      }
+
       return localFb;
     },
   },
@@ -1357,12 +1361,57 @@ export const verityApi = {
       return localResult;
     },
 
+    async sendFeedback(
+      submissionId: string,
+      feedbackText: string,
+      rubricScores?: Array<{ criterion: string; score: number; max: number }>
+    ): Promise<SubmissionReview> {
+      const currentUser = await verityApi.auth.getCurrentUser();
+      const localResult = db.sendCandidateFeedback(
+        submissionId,
+        feedbackText,
+        rubricScores,
+        currentUser
+      );
+
+      if (isSupabaseConfigured()) {
+        try {
+          await supabase.from("submission_reviews").upsert({
+            submission_id: submissionId,
+            reviewer_id: currentUser.id,
+            reviewer_name: currentUser.full_name,
+            updated_at: new Date().toISOString(),
+          });
+          await supabase.from("review_audit_log").insert({
+            submission_id: submissionId,
+            review_id: localResult.id,
+            actor_id: currentUser.id,
+            actor_name: currentUser.full_name,
+            actor_role: currentUser.role,
+            action: "FEEDBACK_SENT",
+            notes: `Candidate feedback sent: ${feedbackText.slice(0, 100)}`,
+            metadata: { feedbackText, rubricScores },
+          });
+        } catch (e) {
+          console.warn("Supabase reviews.sendFeedback sync fallback:", e);
+        }
+      }
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("verity:notifications-updated"));
+      }
+
+      return localResult;
+    },
+
     async recordDecision(
       submissionId: string,
       decision: ReviewDecision,
       rationale: string,
       facultyNotes?: string,
-      newStatus: ReviewStatus = "reviewed"
+      newStatus: ReviewStatus = "reviewed",
+      generalFeedback?: string,
+      rubricScores?: Array<{ criterion: string; score: number; max: number }>
     ): Promise<SubmissionReview> {
       const currentUser = await verityApi.auth.getCurrentUser();
       const localResult = db.recordReviewDecision(
@@ -1371,7 +1420,9 @@ export const verityApi = {
         rationale,
         facultyNotes,
         newStatus,
-        currentUser
+        currentUser,
+        generalFeedback,
+        rubricScores
       );
 
       if (isSupabaseConfigured()) {
@@ -1396,11 +1447,15 @@ export const verityApi = {
             action: "DECISION_RECORDED",
             new_status: newStatus,
             notes: `Decision recorded: ${decision}. Rationale: ${rationale}`,
-            metadata: { decision, rationale, faculty_notes: facultyNotes },
+            metadata: { decision, rationale, faculty_notes: facultyNotes, generalFeedback, rubricScores },
           });
         } catch (e) {
           console.warn("Supabase reviews.recordDecision sync fallback:", e);
         }
+      }
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("verity:notifications-updated"));
       }
 
       return localResult;
@@ -1527,6 +1582,10 @@ export const verityApi = {
           console.warn("Supabase notifications.create fallback:", e);
         }
       }
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("verity:notifications-updated"));
+      }
+      return local;
     },
   },
 

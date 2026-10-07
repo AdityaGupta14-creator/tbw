@@ -11,6 +11,7 @@ import {
   ArrowRight,
   UserCheck,
   RotateCcw,
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -46,6 +47,8 @@ interface SubmissionReviewTabProps {
   activePassages: any[];
   currentUserRole: UserRole;
   submission: any;
+  onSendFeedback?: () => Promise<void>;
+  isSendingFeedback?: boolean;
 }
 
 export function SubmissionReviewTab({
@@ -71,6 +74,8 @@ export function SubmissionReviewTab({
   activePassages,
   currentUserRole,
   submission,
+  onSendFeedback,
+  isSendingFeedback,
 }: SubmissionReviewTabProps) {
   const currentStatus = reviewRecord?.status || (submission.status === "reviewed" ? "reviewed" : "needs_review");
   const reviewedPassages = reviewRecord?.reviewed_passages || [];
@@ -409,6 +414,32 @@ export function SubmissionReviewTab({
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Send Candidate Feedback Action */}
+          <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-border pt-3.5">
+            <div className="text-[11px] text-muted-foreground">
+              {reviewRecord?.general_feedback ? (
+                <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                  <CheckCircle2 className="size-3.5 shrink-0" />
+                  Feedback active & dispatched to student dashboard
+                </span>
+              ) : (
+                <span>Feedback will be notified to the student upon sending</span>
+              )}
+            </div>
+            {onSendFeedback && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={onSendFeedback}
+                disabled={isSendingFeedback || !generalFeedback.trim()}
+                className="gap-1.5 h-8 text-xs bg-brand hover:bg-brand/90 text-white shrink-0 shadow-xs"
+              >
+                <Send className="size-3.5" />
+                {reviewRecord?.general_feedback ? "Update & Notify Student" : "Send Feedback to Student"}
+              </Button>
+            )}
           </div>
         </div>
 

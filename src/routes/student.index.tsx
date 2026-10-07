@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertCircle,
@@ -77,8 +77,7 @@ function StudentDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   // Fetch assignments, submissions, and notifications specifically for the active student
-  useEffect(() => {
-    let isMounted = true;
+  const loadDashboardData = useCallback(() => {
     setLoading(true);
 
     Promise.all([
@@ -86,8 +85,6 @@ function StudentDashboardPage() {
       verityApi.submissions.list(),
       verityApi.notifications.list(currentStudent.id),
     ]).then(([dbAssignments, dbSubmissions, notifs]) => {
-      if (!isMounted) return;
-
       if (notifs) {
         setNotifications(notifs);
       }
@@ -200,11 +197,23 @@ function StudentDashboardPage() {
       setUpcomingList(remainingUpcoming);
       setLoading(false);
     });
+  }, [currentStudent.id, currentStudent.roll_number, currentStudent.full_name]);
+
+  useEffect(() => {
+    loadDashboardData();
+
+    const handleUpdate = () => {
+      loadDashboardData();
+    };
+
+    window.addEventListener("verity:notifications-updated", handleUpdate);
+    window.addEventListener("verity:student-session-changed", handleUpdate);
 
     return () => {
-      isMounted = false;
+      window.removeEventListener("verity:notifications-updated", handleUpdate);
+      window.removeEventListener("verity:student-session-changed", handleUpdate);
     };
-  }, [currentStudent.id, currentStudent.roll_number, currentStudent.full_name]);
+  }, [loadDashboardData]);
 
   const handleMarkNotificationRead = async (id: string) => {
     await verityApi.notifications.markAsRead(id);
@@ -297,6 +306,46 @@ function StudentDashboardPage() {
         />
       </div>
 
+      {/* Faculty Feedback Highlight Banner */}
+      {(() => {
+        const fbNotif = notifications.find(
+          (n) => n.type === "faculty_feedback" || n.type === "review_completed"
+        );
+        if (!fbNotif) return null;
+        return (
+          <section className="mt-4 rounded-md border border-brand/30 bg-gradient-to-r from-brand/10 via-brand/5 to-transparent p-4 shadow-xs">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="rounded-full bg-brand/20 p-2 text-brand shrink-0 mt-0.5">
+                  <MessageSquare className="size-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-bold text-foreground">
+                      Faculty Feedback & Assessment Returned
+                    </h3>
+                    <span className="rounded-full bg-brand/20 px-2 py-0.5 text-[10px] font-semibold text-brand">
+                      {fbNotif.type === "faculty_feedback" ? "Feedback Ready" : "Reviewed"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-foreground/90 font-medium">
+                    {fbNotif.message}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {fbNotif.assignment_title || "Coursework Assignment"} · {fbNotif.course_code || "ENG-CSE-301"} · Received {formatInstitutionalDateTime(fbNotif.created_at)}
+                  </p>
+                </div>
+              </div>
+              <Button asChild size="sm" className="h-8 text-xs bg-brand hover:bg-brand/90 text-white shrink-0 self-end sm:self-center shadow-xs">
+                <Link to="/student/feedback">
+                  View Full Feedback & Rubric <ExternalLink className="ml-1.5 size-3" />
+                </Link>
+              </Button>
+            </div>
+          </section>
+        );
+      })()}
+
       {/* Student Notifications & Review Action Center */}
       {notifications.length > 0 && (
         <section className="mt-5 rounded-md border border-border bg-card p-4 shadow-xs">
@@ -362,9 +411,15 @@ function StudentDashboardPage() {
                   )}
                   {n.action_url && (
                     <Button asChild size="sm" variant="outline" className="h-6 px-2 text-[11px]">
-                      <Link to="/submissions/$submissionId" params={{ submissionId: n.submission_id }}>
-                        View Submission <ExternalLink className="ml-1 size-2.5" />
-                      </Link>
+                      {n.action_url === "/student/feedback" || n.type === "faculty_feedback" ? (
+                        <Link to="/student/feedback">
+                          View Feedback <ExternalLink className="ml-1 size-2.5" />
+                        </Link>
+                      ) : (
+                        <Link to="/submissions/$submissionId" params={{ submissionId: n.submission_id }}>
+                          View Submission <ExternalLink className="ml-1 size-2.5" />
+                        </Link>
+                      )}
                     </Button>
                   )}
                 </div>
@@ -482,6 +537,13 @@ function StudentDashboardPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                    {s.status === "Reviewed" && (
+                      <Button asChild size="sm" variant="outline" className="h-7 text-xs text-brand border-brand/30 hover:bg-brand/10">
+                        <Link to="/student/feedback">
+                          <MessageSquare className="mr-1 size-3 text-brand" /> Feedback
+                        </Link>
+                      </Button>
+                    )}
                     <Button asChild size="sm" variant="outline" className="h-7 text-xs">
                       <Link to="/submissions/$submissionId" params={{ submissionId: s.id }}>
                         <Eye className="mr-1 size-3.5 text-brand" /> View Result
